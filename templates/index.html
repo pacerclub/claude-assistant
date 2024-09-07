@@ -72,6 +72,8 @@
             <button onclick="sendMessage()">Send</button>
         </div>
     </div>
+    <!-- marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         async function sendMessage() {
             const userInput = document.getElementById('user-input');
@@ -110,7 +112,7 @@
                     const { done, value } = await reader.read();
                     if (done) break;
                     partialText += decoder.decode(value);
-                    aiMessageDiv.textContent = partialText.replace(/data: /g, '');
+                    aiMessageDiv.innerHTML = marked.parse(partialText.replace(/data: /g, ''));
                     messages.scrollTop = messages.scrollHeight;
                 }
             }

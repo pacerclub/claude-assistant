@@ -14,7 +14,6 @@ client = anthropic.Anthropic(api_key=api_key)
 
 app = Flask(__name__)
 
-
 # Function to generate system message
 def generate_system_message(user_query):
     return (
@@ -47,15 +46,12 @@ def generate_system_message(user_query):
         "- Suggest reaching out to the support team at [support@pacer.org.cn](mailto:support@pacer.org.cn) or the team leader [Zigao Wang](mailto:a@zigao.wang) for further assistance."
     )
 
-
 # Initialize conversation history
 conversation_history = []
-
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -78,14 +74,13 @@ def chat():
         ) as stream:
             for text in stream.text_stream:
                 response_text += text
-                yield f"data: {text}"
+                yield f"{text}"
 
         # Append AI response to conversation history
         final_message = stream.get_final_message()
         conversation_history.append({"role": "assistant", "content": final_message.content})
 
     return Response(generate(), content_type='text/event-stream')
-
 
 if __name__ == '__main__':
     app.run(debug=True)
