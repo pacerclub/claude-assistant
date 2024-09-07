@@ -25,6 +25,13 @@
             border-radius: 5px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #ccc;
+        }
         .messages {
             flex: 1;
             padding: 20px;
@@ -66,7 +73,17 @@
 </head>
 <body>
     <div class="container">
-        <div class="messages" id="messages"></div>
+        <div class="header">
+            <span>Welcome, {{ username }}</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+        </div>
+        <div class="messages" id="messages">
+            {% for convo in conversations %}
+                <div class="message {{ convo.role }}">
+                    {{ convo.content }}
+                </div>
+            {% endfor %}
+        </div>
         <div class="input-container">
             <input type="text" id="user-input" placeholder="Type your message here..." onkeydown="if (event.key === 'Enter') sendMessage()" />
             <button onclick="sendMessage()">Send</button>
@@ -112,7 +129,7 @@
                     const { done, value } = await reader.read();
                     if (done) break;
                     partialText += decoder.decode(value);
-                    aiMessageDiv.innerHTML = marked.parse(partialText.replace(/data: /g, ''));
+                    aiMessageDiv.innerHTML = marked.parse(partialText);
                     messages.scrollTop = messages.scrollHeight;
                 }
             }
