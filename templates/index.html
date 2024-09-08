@@ -69,6 +69,9 @@
             color: #fff;
             cursor: pointer;
         }
+        .markdown-content {
+            font-family: Arial, sans-serif;
+        }
     </style>
 </head>
 <body>
@@ -80,7 +83,7 @@
         <div class="messages" id="messages">
             {% for convo in conversations %}
                 <div class="message {{ convo.role }}">
-                    {{ convo.content }}
+                    <div class="markdown-content">{{ convo.content | safe }}</div>
                 </div>
             {% endfor %}
         </div>
@@ -92,6 +95,18 @@
     <!-- marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
+        // Render existing messages with Markdown
+        function renderMessages() {
+            const messages = document.getElementById('messages');
+            const messageDivs = messages.getElementsByClassName('markdown-content');
+            for (let i = 0; i < messageDivs.length; i++) {
+                const div = messageDivs[i];
+                div.innerHTML = marked.parse(div.innerHTML);
+            }
+        }
+
+        renderMessages();
+
         async function sendMessage() {
             const userInput = document.getElementById('user-input');
             const messages = document.getElementById('messages');
@@ -102,7 +117,7 @@
             // Display user message
             const userMessageDiv = document.createElement('div');
             userMessageDiv.className = 'message user';
-            userMessageDiv.textContent = userMessage;
+            userMessageDiv.innerHTML = `<div class="markdown-content">${marked.parse(userMessage)}</div>`;
             messages.appendChild(userMessageDiv);
 
             // Clear input
@@ -122,6 +137,9 @@
                 const decoder = new TextDecoder();
                 let aiMessageDiv = document.createElement('div');
                 aiMessageDiv.className = 'message assistant';
+                let aiMessageContentDiv = document.createElement('div');
+                aiMessageContentDiv.className = 'markdown-content';
+                aiMessageDiv.appendChild(aiMessageContentDiv);
                 messages.appendChild(aiMessageDiv);
 
                 let partialText = '';
@@ -129,7 +147,7 @@
                     const { done, value } = await reader.read();
                     if (done) break;
                     partialText += decoder.decode(value);
-                    aiMessageDiv.innerHTML = marked.parse(partialText);
+                    aiMessageContentDiv.innerHTML = marked.parse(partialText);
                     messages.scrollTop = messages.scrollHeight;
                 }
             }
