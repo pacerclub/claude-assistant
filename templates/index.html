@@ -217,7 +217,7 @@
                 li.textContent = data.title;
                 li.setAttribute('data-id', data.id);
                 li.onclick = () => loadConversation(data.id);
-                conversationList.appendChild(li);
+                conversationList.prepend(li); // Add the new conversation to the top of the list
                 loadConversation(data.id);
             });
         }

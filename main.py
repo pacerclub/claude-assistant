@@ -92,7 +92,7 @@ def generate_system_message():
 @app.route('/')
 @login_required
 def index():
-    conversations = Conversation.query.filter_by(user_id=current_user.id).all()
+    conversations = Conversation.query.filter_by(user_id=current_user.id).order_by(Conversation.id.desc()).all()
     return render_template('index.html', conversations=conversations, username=current_user.username)
 
 
