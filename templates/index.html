@@ -14,18 +14,28 @@
             padding: 0;
             height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: center;
+        }
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background-color: #fff;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
         .container {
-            width: 100%;
-            max-width: 800px;
-            height: 90vh;
+            flex: 1;
             display: flex;
             flex-direction: column;
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 20px;
         }
         .header {
             display: flex;
@@ -97,33 +107,60 @@
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.9em;
         }
-        @media (max-width: 600px) {
-            .container {
-                height: 100vh;
-                border-radius: 0;
+        .conversation-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .conversation-item {
+            cursor: pointer;
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .conversation-item.active {
+            background-color: #007bff;
+            color: white;
+        }
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
             }
-            .message {
-                max-width: 90%;
+            .sidebar {
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            .main-content {
+                height: calc(100vh - 250px);
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <span>Welcome, {{ username }}</span>
-            <a href="{{ url_for('logout') }}" style="color: #007aff; text-decoration: none;">Logout</a>
-        </div>
-        <div class="messages" id="messages">
+    <div class="sidebar">
+        <h3>Conversations</h3>
+        <button onclick="newConversation()">New Conversation</button>
+        <ul class="conversation-list" id="conversation-list">
             {% for convo in conversations %}
-                <div class="message {{ convo.role }}">
-                    <div class="markdown-content">{{ convo.content }}</div>
-                </div>
+                <li class="conversation-item" data-id="{{ convo.id }}" onclick="loadConversation({{ convo.id }})">
+                    {{ convo.title }}
+                </li>
             {% endfor %}
-        </div>
-        <div class="input-container">
-            <textarea id="user-input" placeholder="Type your message here..." rows="3" onkeydown="handleKeyDown(event)"></textarea>
-            <button onclick="sendMessage()">Send</button>
+        </ul>
+    </div>
+    <div class="main-content">
+        <div class="container">
+            <div class="header">
+                <span>Welcome, {{ username }}</span>
+                <a href="{{ url_for('logout') }}" style="color: #007aff; text-decoration: none;">Logout</a>
+            </div>
+            <div class="messages" id="messages"></div>
+            <div class="input-container">
+                <textarea id="user-input" placeholder="Type your message here..." rows="3" onkeydown="handleKeyDown(event)"></textarea>
+                <button onclick="sendMessage()">Send</button>
+            </div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -136,7 +173,6 @@
         });
 
         function renderMessage(content) {
-            // Parse as Markdown first, then sanitize the result
             const parsedContent = marked.parse(content);
             return DOMPurify.sanitize(parsedContent, { ALLOW_DATA_ATTR: false });
         }
@@ -156,8 +192,6 @@
             messages.scrollTop = messages.scrollHeight;
         }
 
-        renderMessages();
-
         function handleKeyDown(event) {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -165,7 +199,70 @@
             }
         }
 
+        let currentConversationId = null;
+
+        function newConversation() {
+            fetch('/new_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'title=New Conversation'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const conversationList = document.getElementById('conversation-list');
+                const li = document.createElement('li');
+                li.className = 'conversation-item';
+                li.textContent = data.title;
+                li.setAttribute('data-id', data.id);
+                li.onclick = () => loadConversation(data.id);
+                conversationList.appendChild(li);
+                loadConversation(data.id);
+            });
+        }
+
+        function loadConversation(conversationId) {
+            currentConversationId = conversationId;
+            const messages = document.getElementById('messages');
+            messages.innerHTML = '';
+
+            fetch(`/get_conversation/${conversationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    data.messages.forEach(msg => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${msg.role}`;
+                        messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(msg.content)}</div>`;
+                        messages.appendChild(messageDiv);
+                    });
+
+                    renderMessages();
+                    scrollToBottom();
+                });
+
+            // Highlight the active conversation
+            const conversationItems = document.getElementsByClassName('conversation-item');
+            for (let item of conversationItems) {
+                item.classList.remove('active');
+            }
+            const activeItem = document.querySelector(`.conversation-item[data-id='${conversationId}']`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+        }
+
         async function sendMessage() {
+            if (!currentConversationId) {
+                alert('Please select or create a conversation first.');
+                return;
+            }
+
             const userInput = document.getElementById('user-input');
             const messages = document.getElementById('messages');
 
@@ -177,7 +274,7 @@
             userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(userMessage)}</div>`;
             messages.appendChild(userMessageDiv);
 
-            const messageToBeSent = userInput.value; // Preserve original message with line breaks
+            const messageToBeSent = userInput.value;
             userInput.value = '';
 
             scrollToBottom();
@@ -187,7 +284,7 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message: messageToBeSent })
+                body: JSON.stringify({ message: messageToBeSent, conversation_id: currentConversationId })
             });
 
             if (response.ok) {
@@ -209,6 +306,16 @@
                     messages.scrollTop = messages.scrollHeight;
                 }
                 scrollToBottom();
+            }
+        }
+
+        // Initialize with the first conversation or create a new one if none exist
+        window.onload = function() {
+            const conversations = document.getElementsByClassName('conversation-item');
+            if (conversations.length > 0) {
+                loadConversation(conversations[0].getAttribute('data-id'));
+            } else {
+                newConversation();
             }
         }
     </script>

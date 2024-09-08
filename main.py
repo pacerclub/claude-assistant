@@ -1,8 +1,9 @@
 import os
 from dotenv import load_dotenv
-from flask import Flask, request, render_template, redirect, url_for, flash, session, Response
+from flask import Flask, request, render_template, redirect, url_for, flash, session, Response, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from sqlalchemy.orm import relationship
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,6 +15,7 @@ admin_password = os.getenv("ADMIN_PASSWORD")
 
 # Initialize the Anthropics client
 import anthropic
+
 client = anthropic.Anthropic(api_key=api_key)
 
 app = Flask(__name__)
@@ -23,23 +25,38 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+
 # User model
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    conversations = relationship('Conversation', back_populates='user', cascade='all, delete-orphan')
+
 
 # Conversation model
 class Conversation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user = relationship('User', back_populates='conversations')
+    messages = relationship('Message', back_populates='conversation', cascade='all, delete-orphan')
+
+
+# Message model
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+    conversation = relationship('Conversation', back_populates='messages')
     role = db.Column(db.String(50), nullable=False)
     content = db.Column(db.Text, nullable=False)
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
 
 # Function to generate system message
 def generate_system_message():
@@ -71,11 +88,13 @@ def generate_system_message():
         "- Suggest reaching out to the support team at [support@pacer.org.cn](mailto:support@pacer.org.cn) or the team leader [Zigao Wang](mailto:a@zigao.wang) for further assistance."
     )
 
+
 @app.route('/')
 @login_required
 def index():
     conversations = Conversation.query.filter_by(user_id=current_user.id).all()
     return render_template('index.html', conversations=conversations, username=current_user.username)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -90,12 +109,14 @@ def login():
             flash('Login Unsuccessful. Please check username and password', 'danger')
     return render_template('login.html')
 
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     session.pop('system_message', None)  # Clear the system message from the session on logout
     return redirect(url_for('login'))
+
 
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
@@ -138,74 +159,82 @@ def admin():
     users = User.query.all()
     return render_template('admin.html', users=users)
 
-def handle_conversation(user_query, user_id=None):
-    # Retrieve existing conversation history from the database
-    if user_id:
-        conversation_history = Conversation.query.filter_by(user_id=user_id).all()
-    else:
-        conversation_history = []
 
-    # Create a list of dictionaries with alternating roles
-    conversation_dicts = [{"role": convo.role, "content": convo.content} for convo in conversation_history]
+@app.route('/new_conversation', methods=['POST'])
+@login_required
+def new_conversation():
+    title = request.form.get('title', 'New Conversation')
+    conversation = Conversation(title=title, user_id=current_user.id)
+    db.session.add(conversation)
+    db.session.commit()
+    return jsonify({'id': conversation.id, 'title': conversation.title})
 
-    # Ensure roles alternate correctly
-    if conversation_dicts and conversation_dicts[-1]["role"] == "user":
-        conversation_dicts.pop()  # Remove the last user message if it exists without an assistant response
 
-    # Check if this is the first message in the session
+@app.route('/get_conversation/<int:conversation_id>', methods=['GET'])
+@login_required
+def get_conversation(conversation_id):
+    conversation = Conversation.query.filter_by(id=conversation_id, user_id=current_user.id).first()
+    if not conversation:
+        return jsonify({'error': 'Invalid conversation'}), 400
+
+    messages = Message.query.filter_by(conversation_id=conversation_id).all()
+    messages_data = [{'role': msg.role, 'content': msg.content} for msg in messages]
+    return jsonify({'messages': messages_data})
+
+
+def handle_conversation(user_query, conversation):
+    conversation_history = Message.query.filter_by(conversation_id=conversation.id).all()
+    conversation_dicts = [{"role": msg.role, "content": msg.content} for msg in conversation_history]
+
     if 'system_message' not in session:
         system_message = generate_system_message()
-        session['system_message'] = system_message  # Store the system message in the session
+        session['system_message'] = system_message
     else:
         system_message = session['system_message']
 
-    # Append the new user message
     conversation_dicts.append({"role": "user", "content": user_query})
 
     def generate():
-        print(f"Conversation Dicts: {conversation_dicts}")  # Print the conversation_dicts for debugging
-        print(f"System Message: {system_message}")  # Print the system_message for debugging
         try:
             with client.messages.stream(
                     model="claude-3-5-sonnet-20240620",
                     max_tokens=4000,
                     temperature=0,
-                    system=system_message,  # Pass the system_message as a top-level parameter
+                    system=system_message,
                     messages=conversation_dicts
             ) as stream:
                 for text in stream.text_stream:
                     yield f"{text}"
 
-            # Append AI response to conversation history
             final_message = stream.get_final_message()
             ai_response_content = ''.join(block.text for block in final_message.content)
             ai_response = {"role": "assistant", "content": ai_response_content.strip()}
             conversation_dicts.append(ai_response)
 
-            # Save the updated conversation history to the database
-            if user_id:
-                with app.app_context():
-                    # Save only the new user message and AI response
-                    db.session.add(Conversation(user_id=user_id, role="user", content=user_query))
-                    db.session.add(Conversation(user_id=user_id, role="assistant", content=ai_response_content.strip()))
-                    db.session.commit()
+            with app.app_context():
+                db.session.add(Message(conversation_id=conversation.id, role="user", content=user_query))
+                db.session.add(
+                    Message(conversation_id=conversation.id, role="assistant", content=ai_response_content.strip()))
+                db.session.commit()
         except Exception as e:
             print(f"Exception in generate: {e}")
 
     return Response(generate(), content_type='text/event-stream')
 
+
 @app.route('/chat', methods=['POST'])
 @login_required
 def chat():
     user_query = request.json.get('message')
-    response_text = handle_conversation(user_query, current_user.id)
+    conversation_id = request.json.get('conversation_id')
+    conversation = Conversation.query.get(conversation_id)
+
+    if not conversation or conversation.user_id != current_user.id:
+        return jsonify({'error': 'Invalid conversation'}), 400
+
+    response_text = handle_conversation(user_query, conversation)
     return response_text
 
-@app.route('/guest_chat', methods=['POST'])
-def guest_chat():
-    user_query = request.json.get('message')
-    response_text = handle_conversation(user_query)
-    return response_text
 
 if __name__ == '__main__':
     with app.app_context():
