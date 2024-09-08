@@ -42,13 +42,11 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # Function to generate system message
-def generate_system_message(user_query):
+def generate_system_message():
     return (
         "You are an AI assistant for Pacer Club, a Hack Club initiative founded by Zigao Wang. "
         "Your primary goal is to provide efficient and supportive assistance to Pacer Club members on various tasks related "
         "to coding, design, project ideas, and more. Always be precise, helpful, and offer valuable resources when appropriate.\n\n"
-        "You will receive a query from a Pacer Club member. Here is their query:\n\n"
-        f"{user_query}\n\n"
         "When responding to the query, follow these guidelines:\n\n"
         "1. Be concise and precise in your answers.\n"
         "2. Provide helpful information directly related to the query.\n"
@@ -96,6 +94,7 @@ def login():
 @login_required
 def logout():
     logout_user()
+    session.pop('system_message', None)  # Clear the system message from the session on logout
     return redirect(url_for('login'))
 
 @app.route('/admin', methods=['GET', 'POST'])
@@ -139,51 +138,74 @@ def admin():
     users = User.query.all()
     return render_template('admin.html', users=users)
 
-@app.route('/chat', methods=['POST'])
-@login_required
-def chat():
-    user_query = request.json.get('message')
-
+def handle_conversation(user_query, user_id=None):
     # Retrieve existing conversation history from the database
-    conversation_history = Conversation.query.filter_by(user_id=current_user.id).all()
+    if user_id:
+        conversation_history = Conversation.query.filter_by(user_id=user_id).all()
+    else:
+        conversation_history = []
 
     # Create a list of dictionaries with alternating roles
-    conversation_dicts = []
-    for convo in conversation_history:
-        conversation_dicts.append({"role": convo.role, "content": convo.content})
+    conversation_dicts = [{"role": convo.role, "content": convo.content} for convo in conversation_history]
+
+    # Ensure roles alternate correctly
+    if conversation_dicts and conversation_dicts[-1]["role"] == "user":
+        conversation_dicts.pop()  # Remove the last user message if it exists without an assistant response
+
+    # Check if this is the first message in the session
+    if 'system_message' not in session:
+        system_message = generate_system_message()
+        session['system_message'] = system_message  # Store the system message in the session
+    else:
+        system_message = session['system_message']
 
     # Append the new user message
     conversation_dicts.append({"role": "user", "content": user_query})
 
-    # Generate system message
-    system_message = generate_system_message(user_query)
-    print(system_message)  # Print the system_message for debugging
-
     def generate():
-        response_text = ""
-        print(conversation_dicts)  # Print the conversation_dicts for debugging
-        with client.messages.stream(
-                model="claude-3-5-sonnet-20240620",
-                max_tokens=4000,
-                temperature=0,
-                system="",  # Pass an empty string instead of the system_message
-                messages=conversation_dicts
-        ) as stream:
-            for text in stream.text_stream:
-                response_text += text
-                yield f"{text}"
+        print(f"Conversation Dicts: {conversation_dicts}")  # Print the conversation_dicts for debugging
+        print(f"System Message: {system_message}")  # Print the system_message for debugging
+        try:
+            with client.messages.stream(
+                    model="claude-3-5-sonnet-20240620",
+                    max_tokens=4000,
+                    temperature=0,
+                    system=system_message,  # Pass the system_message as a top-level parameter
+                    messages=conversation_dicts
+            ) as stream:
+                for text in stream.text_stream:
+                    yield f"{text}"
 
-        # Append AI response to conversation history
-        final_message = stream.get_final_message()
-        ai_response = {"role": "assistant", "content": final_message.content}
-        conversation_dicts.append(ai_response)
+            # Append AI response to conversation history
+            final_message = stream.get_final_message()
+            ai_response_content = ''.join(block.text for block in final_message.content)
+            ai_response = {"role": "assistant", "content": ai_response_content.strip()}
+            conversation_dicts.append(ai_response)
 
-        # Save the updated conversation history to the database
-        for convo_dict in conversation_dicts:
-            db.session.add(Conversation(user_id=current_user.id, role=convo_dict["role"], content=convo_dict["content"]))
-        db.session.commit()
+            # Save the updated conversation history to the database
+            if user_id:
+                with app.app_context():
+                    # Save only the new user message and AI response
+                    db.session.add(Conversation(user_id=user_id, role="user", content=user_query))
+                    db.session.add(Conversation(user_id=user_id, role="assistant", content=ai_response_content.strip()))
+                    db.session.commit()
+        except Exception as e:
+            print(f"Exception in generate: {e}")
 
     return Response(generate(), content_type='text/event-stream')
+
+@app.route('/chat', methods=['POST'])
+@login_required
+def chat():
+    user_query = request.json.get('message')
+    response_text = handle_conversation(user_query, current_user.id)
+    return response_text
+
+@app.route('/guest_chat', methods=['POST'])
+def guest_chat():
+    user_query = request.json.get('message')
+    response_text = handle_conversation(user_query)
+    return response_text
 
 if __name__ == '__main__':
     with app.app_context():
