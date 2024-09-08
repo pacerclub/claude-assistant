@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pacer Club AI Assistant</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f7;
             margin: 0;
             padding: 0;
             height: 100vh;
@@ -17,60 +19,92 @@
         }
         .container {
             width: 100%;
-            max-width: 600px;
-            height: 100%;
+            max-width: 800px;
+            height: 90vh;
             display: flex;
             flex-direction: column;
             background-color: #fff;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid #ccc;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
         }
         .messages {
             flex: 1;
-            padding: 20px;
+            padding: 15px;
             overflow-y: auto;
         }
         .message {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 5px;
+            margin-bottom: 15px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         .user {
-            background-color: #d1e7fd;
-            text-align: right;
+            background-color: #007aff;
+            color: #fff;
+            align-self: flex-end;
+            margin-left: auto;
         }
         .assistant {
-            background-color: #f1f0f0;
+            background-color: #f0f0f0;
+            color: #000;
         }
         .input-container {
             display: flex;
-            padding: 20px;
-            border-top: 1px solid #ccc;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
         }
-        .input-container input {
+        .input-container textarea {
             flex: 1;
             padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
+            border-radius: 8px;
+            border: 1px solid #d1d1d1;
             margin-right: 10px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
         }
         .input-container button {
-            padding: 10px;
-            border-radius: 5px;
+            padding: 10px 15px;
+            border-radius: 8px;
             border: none;
-            background-color: #007bff;
+            background-color: #007aff;
             color: #fff;
             cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
         }
         .markdown-content {
-            font-family: Arial, sans-serif;
+            line-height: 1.5;
+        }
+        .markdown-content pre {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        .markdown-content code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+        @media (max-width: 600px) {
+            .container {
+                height: 100vh;
+                border-radius: 0;
+            }
+            .message {
+                max-width: 90%;
+            }
         }
     </style>
 </head>
@@ -78,58 +112,82 @@
     <div class="container">
         <div class="header">
             <span>Welcome, {{ username }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+            <a href="{{ url_for('logout') }}" style="color: #007aff; text-decoration: none;">Logout</a>
         </div>
         <div class="messages" id="messages">
             {% for convo in conversations %}
                 <div class="message {{ convo.role }}">
-                    <div class="markdown-content">{{ convo.content | safe }}</div>
+                    <div class="markdown-content">{{ convo.content }}</div>
                 </div>
             {% endfor %}
         </div>
         <div class="input-container">
-            <input type="text" id="user-input" placeholder="Type your message here..." onkeydown="if (event.key === 'Enter') sendMessage()" />
+            <textarea id="user-input" placeholder="Type your message here..." rows="3" onkeydown="handleKeyDown(event)"></textarea>
             <button onclick="sendMessage()">Send</button>
         </div>
     </div>
-    <!-- marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.3/purify.min.js"></script>
     <script>
-        // Render existing messages with Markdown
+        marked.setOptions({
+            headerIds: false,
+            mangle: false,
+            breaks: true
+        });
+
+        function renderMessage(content) {
+            // Parse as Markdown first, then sanitize the result
+            const parsedContent = marked.parse(content);
+            return DOMPurify.sanitize(parsedContent, { ALLOW_DATA_ATTR: false });
+        }
+
         function renderMessages() {
             const messages = document.getElementById('messages');
             const messageDivs = messages.getElementsByClassName('markdown-content');
             for (let i = 0; i < messageDivs.length; i++) {
                 const div = messageDivs[i];
-                div.innerHTML = marked.parse(div.innerHTML);
+                div.innerHTML = renderMessage(div.textContent);
             }
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
         }
 
         renderMessages();
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
 
         async function sendMessage() {
             const userInput = document.getElementById('user-input');
             const messages = document.getElementById('messages');
 
             const userMessage = userInput.value;
-            if (!userMessage) return;
+            if (!userMessage.trim()) return;
 
-            // Display user message
             const userMessageDiv = document.createElement('div');
             userMessageDiv.className = 'message user';
-            userMessageDiv.innerHTML = `<div class="markdown-content">${marked.parse(userMessage)}</div>`;
+            userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(userMessage)}</div>`;
             messages.appendChild(userMessageDiv);
 
-            // Clear input
+            const messageToBeSent = userInput.value; // Preserve original message with line breaks
             userInput.value = '';
 
-            // Send user message to server
+            scrollToBottom();
+
             const response = await fetch('/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message: userMessage })
+                body: JSON.stringify({ message: messageToBeSent })
             });
 
             if (response.ok) {
@@ -147,9 +205,10 @@
                     const { done, value } = await reader.read();
                     if (done) break;
                     partialText += decoder.decode(value);
-                    aiMessageContentDiv.innerHTML = marked.parse(partialText);
+                    aiMessageContentDiv.innerHTML = renderMessage(partialText);
                     messages.scrollTop = messages.scrollHeight;
                 }
+                scrollToBottom();
             }
         }
     </script>
