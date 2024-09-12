@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pacer Club AI Assistant</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
 
@@ -22,7 +23,7 @@
         padding: 0;
         height: 100vh;
         display: flex;
-        overflow: hidden; /* Prevent body from scrolling */
+        overflow: hidden;
       }
 
       .sidebar {
@@ -32,13 +33,15 @@
         border-right: 1px solid #e0e0e0;
         padding: 20px;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
       }
 
       .main-content {
         flex: 1;
         display: flex;
         flex-direction: column;
-        overflow: hidden; /* Prevent main-content from scrolling */
+        overflow: hidden;
       }
 
       .container {
@@ -49,7 +52,7 @@
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         margin: 20px;
-        overflow: hidden; /* Prevent container from scrolling */
+        overflow: hidden;
       }
 
       .header {
@@ -63,7 +66,7 @@
       .messages {
         flex: 1;
         padding: 15px;
-        overflow-y: auto; /* Enable scrolling within messages */
+        overflow-y: auto;
       }
 
       .message {
@@ -144,11 +147,47 @@
         margin-bottom: 5px;
         background-color: #e9ecef;
         border-radius: 5px;
+        display: flex;
+        align-items: center;
       }
 
       .conversation-item.active {
         background-color: #007bff;
         color: white;
+      }
+
+      .conversation-item i {
+        margin-right: 10px;
+      }
+
+      .new-conversation-btn {
+        background-color: #007aff;
+        color: #fff;
+        border: none;
+        padding: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .new-conversation-btn i {
+        margin-right: 5px;
+      }
+
+      .logout-btn {
+        color: #007aff;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+      }
+
+      .logout-btn i {
+        margin-left: 5px;
       }
 
       @media (max-width: 768px) {
@@ -170,7 +209,9 @@
   <body>
     <div class="sidebar">
       <h3>Conversations</h3>
-      <button onclick="newConversation()">New Conversation</button>
+      <button class="new-conversation-btn" onclick="newConversation()">
+        <i class="fas fa-plus"></i> New Conversation
+      </button>
       <ul class="conversation-list" id="conversation-list">
         {% for convo in conversations %}
         <li
@@ -178,7 +219,7 @@
           data-id="{{ convo.id }}"
           onclick="loadConversation({{ convo.id }})"
         >
-          {{ convo.title }}
+          <i class="fas fa-comments"></i> {{ convo.title }}
         </li>
         {% endfor %}
       </ul>
@@ -187,11 +228,9 @@
       <div class="container">
         <div class="header">
           <span>Welcome, {{ username }}</span>
-          <a
-            href="{{ url_for('logout') }}"
-            style="color: #007aff; text-decoration: none"
-            >Logout</a
-          >
+          <a href="{{ url_for('logout') }}" class="logout-btn">
+            Logout <i class="fas fa-sign-out-alt"></i>
+          </a>
         </div>
         <div class="messages" id="messages"></div>
         <div class="input-container">
@@ -257,10 +296,10 @@
               document.getElementById("conversation-list");
             const li = document.createElement("li");
             li.className = "conversation-item";
-            li.textContent = data.title;
+            li.innerHTML = `<i class="fas fa-comments"></i> ${data.title}`;
             li.setAttribute("data-id", data.id);
             li.onclick = () => loadConversation(data.id);
-            conversationList.prepend(li); // Add the new conversation to the top of the list
+            conversationList.prepend(li);
             loadConversation(data.id);
           });
       }
@@ -289,7 +328,6 @@
             scrollToBottom();
           });
 
-        // Highlight the active conversation
         const conversationItems =
           document.getElementsByClassName("conversation-item");
         for (let item of conversationItems) {
@@ -358,7 +396,6 @@
         }
       }
 
-      // Initialize with the first conversation or create a new one if none exist
       window.onload = function () {
         const conversations =
           document.getElementsByClassName("conversation-item");
