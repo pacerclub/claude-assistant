@@ -12,7 +12,10 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css"
     />
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
@@ -340,93 +343,93 @@
       }
 
       .markdown-content pre {
-  background-color: #f6f8fa;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  padding: 16px;
-  overflow-x: auto;
-  margin: 1em 0;
-}
+        background-color: #f6f8fa;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 16px;
+        overflow-x: auto;
+        margin: 1em 0;
+      }
 
-.markdown-content code {
-  font-family: 'Fira Code', 'Roboto Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-}
+      .markdown-content code {
+        font-family: "Fira Code", "Roboto Mono", "Consolas", monospace;
+        font-size: 14px;
+        line-height: 1.5;
+      }
 
-.markdown-content pre code {
-  background-color: transparent;
-  padding: 0;
-  color: #24292e;
-}
+      .markdown-content pre code {
+        background-color: transparent;
+        padding: 0;
+        color: #24292e;
+      }
 
-/* Syntax highlighting styles */
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-literal,
-.hljs-section,
-.hljs-link {
-  color: #d73a49;
-}
+      /* Syntax highlighting styles */
+      .hljs-keyword,
+      .hljs-selector-tag,
+      .hljs-literal,
+      .hljs-section,
+      .hljs-link {
+        color: #d73a49;
+      }
 
-.hljs-string,
-.hljs-title,
-.hljs-name,
-.hljs-type,
-.hljs-attribute,
-.hljs-symbol,
-.hljs-bullet,
-.hljs-built_in,
-.hljs-addition,
-.hljs-variable,
-.hljs-template-tag,
-.hljs-template-variable {
-  color: #032f62;
-}
+      .hljs-string,
+      .hljs-title,
+      .hljs-name,
+      .hljs-type,
+      .hljs-attribute,
+      .hljs-symbol,
+      .hljs-bullet,
+      .hljs-built_in,
+      .hljs-addition,
+      .hljs-variable,
+      .hljs-template-tag,
+      .hljs-template-variable {
+        color: #032f62;
+      }
 
-.hljs-comment,
-.hljs-quote,
-.hljs-deletion,
-.hljs-meta {
-  color: #6a737d;
-}
+      .hljs-comment,
+      .hljs-quote,
+      .hljs-deletion,
+      .hljs-meta {
+        color: #6a737d;
+      }
 
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-literal,
-.hljs-title,
-.hljs-section,
-.hljs-doctag,
-.hljs-type,
-.hljs-name,
-.hljs-strong {
-  font-weight: bold;
-}
+      .hljs-keyword,
+      .hljs-selector-tag,
+      .hljs-literal,
+      .hljs-title,
+      .hljs-section,
+      .hljs-doctag,
+      .hljs-type,
+      .hljs-name,
+      .hljs-strong {
+        font-weight: bold;
+      }
 
-.hljs-emphasis {
-  font-style: italic;
-}
+      .hljs-emphasis {
+        font-style: italic;
+      }
 
-.hljs-number {
-  color: #005cc5;
-}
+      .hljs-number {
+        color: #005cc5;
+      }
 
-.hljs-operator,
-.hljs-punctuation {
-  color: #24292e;
-}
+      .hljs-operator,
+      .hljs-punctuation {
+        color: #24292e;
+      }
 
-.hljs-property {
-  color: #e36209;
-}
+      .hljs-property {
+        color: #e36209;
+      }
 
-.hljs-tag {
-  color: #22863a;
-}
+      .hljs-tag {
+        color: #22863a;
+      }
 
-.hljs-function {
-  color: #6f42c1;
-}
+      .hljs-function {
+        color: #6f42c1;
+      }
     </style>
   </head>
   <body>
@@ -496,27 +499,31 @@
       });
 
       function renderMessage(content) {
-        const parsedContent = marked.parse(content);
+        // Escape HTML entities first
+        const escapeHtml = (unsafe) => {
+          return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        };
+
+        const escapedContent = escapeHtml(content);
+
+        // Now parse the escaped content as Markdown
+        const parsedContent = marked.parse(escapedContent);
+
+        // Sanitize the parsed content
         const sanitizedContent = DOMPurify.sanitize(parsedContent, {
           ALLOW_DATA_ATTR: false,
           ADD_ATTR: ["target"],
-          ADD_TAGS: ["iframe"],
-          FORBID_TAGS: ["style", "input", "form"],
+          FORBID_TAGS: ["style", "input", "form", "script", "iframe"],
           FORBID_ATTR: ["style", "onerror", "onload"],
         });
 
-        // Create a temporary div to hold the content
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = sanitizedContent;
-
-        // Apply syntax highlighting to code blocks
-        tempDiv.querySelectorAll("pre code").forEach((block) => {
-          hljs.highlightElement(block);
-        });
-
-        return tempDiv.innerHTML;
+        return sanitizedContent;
       }
-
       function scrollToBottom() {
         const messages = document.getElementById("messages");
         messages.scrollTop = messages.scrollHeight;
@@ -560,18 +567,18 @@
             li.className = "conversation-item";
             li.setAttribute("data-id", data.id);
             li.innerHTML = `
-                    <span class="title" onclick="loadConversation(${data.id})">
-                        <i class="fas fa-comments"></i> ${data.title}
-                    </span>
-                    <div class="conversation-actions">
-                        <button class="edit-btn" onclick="editConversationTitle(${data.id})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="delete-btn" onclick="deleteConversation(${data.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
+        <span class="title" onclick="loadConversation(${data.id})">
+          <i class="fas fa-comments"></i> ${data.title}
+        </span>
+        <div class="conversation-actions">
+          <button class="edit-btn" onclick="editConversationTitle(${data.id})">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="delete-btn" onclick="deleteConversation(${data.id})">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `;
             conversationList.prepend(li);
             loadConversation(data.id);
           });
@@ -604,11 +611,11 @@
 
             if (data.messages.length === 0) {
               messages.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-comment-dots"></i>
-                            <p>This conversation is empty. Start by sending a message!</p>
-                        </div>
-                    `;
+          <div class="empty-state">
+            <i class="fas fa-comment-dots"></i>
+            <p>This conversation is empty. Start by sending a message!</p>
+          </div>
+        `;
             } else {
               data.messages.forEach((msg) => {
                 const messageDiv = document.createElement("div");

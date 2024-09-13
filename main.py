@@ -4,6 +4,7 @@ from flask import Flask, request, render_template, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from sqlalchemy.orm import relationship
+import bleach
 
 # Load environment variables from .env file
 load_dotenv()
@@ -225,7 +226,7 @@ def handle_conversation(user_query, conversation):
 @app.route('/chat', methods=['POST'])
 @login_required
 def chat():
-    user_query = request.json.get('message')
+    user_query = bleach.clean(request.json.get('message'))
     conversation_id = request.json.get('conversation_id')
     conversation = Conversation.query.get(conversation_id)
 
