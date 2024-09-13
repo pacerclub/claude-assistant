@@ -178,7 +178,7 @@ def get_conversation(conversation_id):
         return jsonify({'error': 'Invalid conversation'}), 400
 
     messages = Message.query.filter_by(conversation_id=conversation_id).all()
-    messages_data = [{'role': msg.role, 'content': msg.content} for msg in messages]
+    messages_data = [{'role': msg.role, 'content': msg.content, 'id': msg.id} for msg in messages]
     return jsonify({'messages': messages_data})
 
 
@@ -198,7 +198,7 @@ def handle_conversation(user_query, conversation):
         try:
             with client.messages.stream(
                     model="claude-3-5-sonnet-20240620",
-                    max_tokens=4000,
+                    max_tokens=4096,
                     temperature=0,
                     system=system_message,
                     messages=conversation_dicts

@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pacer Club AI Assistant</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
 
@@ -209,6 +212,92 @@
         color: #bd2130;
       }
 
+      .typing-indicator {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .typing-indicator span {
+        height: 10px;
+        width: 10px;
+        float: left;
+        margin: 0 1px;
+        background-color: #9e9ea1;
+        display: block;
+        border-radius: 50%;
+        opacity: 0.4;
+      }
+
+      .typing-indicator span:nth-of-type(1) {
+        animation: 1s blink infinite 0.3333s;
+      }
+
+      .typing-indicator span:nth-of-type(2) {
+        animation: 1s blink infinite 0.6666s;
+      }
+
+      .typing-indicator span:nth-of-type(3) {
+        animation: 1s blink infinite 0.9999s;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+      }
+
+      .empty-state i {
+        font-size: 48px;
+        margin-bottom: 20px;
+      }
+
+      .conversation-item .title {
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .conversation-actions {
+        display: flex;
+        gap: 5px;
+      }
+
+      .edit-btn,
+      .delete-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 5px;
+      }
+
+      .edit-btn {
+        color: #ffc107;
+      }
+
+      .edit-btn:hover {
+        color: #e0a800;
+      }
+
+      .delete-btn {
+        color: #dc3545;
+      }
+
+      .delete-btn:hover {
+        color: #bd2130;
+      }
+
       @media (max-width: 768px) {
         body {
           flex-direction: column;
@@ -223,6 +312,26 @@
           height: calc(100vh - 250px);
         }
       }
+      .markdown-content pre {
+        background-color: #f4f4f4;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        overflow-x: auto;
+      }
+
+      .markdown-content code {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 0.9em;
+        background-color: #f4f4f4;
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+
+      .markdown-content pre code {
+        background-color: transparent;
+        padding: 0;
+      }
     </style>
   </head>
   <body>
@@ -234,12 +343,23 @@
       <ul class="conversation-list" id="conversation-list">
         {% for convo in conversations %}
         <li class="conversation-item" data-id="{{ convo.id }}">
-          <span onclick="loadConversation({{ convo.id }})">
+          <span class="title" onclick="loadConversation({{ convo.id }})">
             <i class="fas fa-comments"></i> {{ convo.title }}
           </span>
-          <button class="delete-btn" onclick="deleteConversation({{ convo.id }})">
-            <i class="fas fa-trash"></i>
-          </button>
+          <div class="conversation-actions">
+            <button
+              class="edit-btn"
+              onclick="editConversationTitle({{ convo.id }})"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
+            <button
+              class="delete-btn"
+              onclick="deleteConversation({{ convo.id }})"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </li>
         {% endfor %}
       </ul>
@@ -252,7 +372,12 @@
             Logout <i class="fas fa-sign-out-alt"></i>
           </a>
         </div>
-        <div class="messages" id="messages"></div>
+        <div class="messages" id="messages">
+          <div class="empty-state">
+            <i class="fas fa-comments"></i>
+            <p>Start a new conversation or select an existing one.</p>
+          </div>
+        </div>
         <div class="input-container">
           <textarea
             id="user-input"
@@ -266,26 +391,31 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.3/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
       marked.setOptions({
         headerIds: false,
         mangle: false,
         breaks: true,
+        gfm: true,
+        highlight: function (code, language) {
+          if (language && hljs.getLanguage(language)) {
+            return hljs.highlight(code, { language }).value;
+          } else {
+            return hljs.highlightAuto(code).value;
+          }
+        },
       });
 
       function renderMessage(content) {
         const parsedContent = marked.parse(content);
-        return DOMPurify.sanitize(parsedContent, { ALLOW_DATA_ATTR: false });
-      }
-
-      function renderMessages() {
-        const messages = document.getElementById("messages");
-        const messageDivs = messages.getElementsByClassName("markdown-content");
-        for (let i = 0; i < messageDivs.length; i++) {
-          const div = messageDivs[i];
-          div.innerHTML = renderMessage(div.textContent);
-        }
-        scrollToBottom();
+        return DOMPurify.sanitize(parsedContent, {
+          ALLOW_DATA_ATTR: false,
+          ADD_ATTR: ["target"],
+          ADD_TAGS: ["iframe"],
+          FORBID_TAGS: ["style", "input", "form"],
+          FORBID_ATTR: ["style", "onerror", "onload"],
+        });
       }
 
       function scrollToBottom() {
@@ -303,8 +433,14 @@
       let currentConversationId = null;
 
       function formatDate(date) {
-        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-        return new Date(date).toLocaleDateString('en-US', options);
+        const options = {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        };
+        return new Date(date).toLocaleDateString("en-US", options);
       }
 
       function newConversation() {
@@ -319,18 +455,24 @@
         })
           .then((response) => response.json())
           .then((data) => {
-            const conversationList = document.getElementById("conversation-list");
+            const conversationList =
+              document.getElementById("conversation-list");
             const li = document.createElement("li");
             li.className = "conversation-item";
             li.setAttribute("data-id", data.id);
             li.innerHTML = `
-              <span onclick="loadConversation(${data.id})">
-                <i class="fas fa-comments"></i> ${data.title}
-              </span>
-              <button class="delete-btn" onclick="deleteConversation(${data.id})">
-                <i class="fas fa-trash"></i>
-              </button>
-            `;
+                    <span class="title" onclick="loadConversation(${data.id})">
+                        <i class="fas fa-comments"></i> ${data.title}
+                    </span>
+                    <div class="conversation-actions">
+                        <button class="edit-btn" onclick="editConversationTitle(${data.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="delete-btn" onclick="deleteConversation(${data.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
             conversationList.prepend(li);
             loadConversation(data.id);
           });
@@ -350,31 +492,44 @@
             }
 
             // Update the conversation title
-            const conversationTitle = document.getElementById("conversation-title");
+            const conversationTitle =
+              document.getElementById("conversation-title");
             const activeItem = document.querySelector(
-              `.conversation-item[data-id='${conversationId}']`
+              `.conversation-item[data-id='${conversationId}']`,
             );
             if (activeItem) {
-              conversationTitle.textContent = activeItem.querySelector('span').textContent.trim();
+              conversationTitle.textContent = activeItem
+                .querySelector(".title")
+                .textContent.trim();
             }
 
-            data.messages.forEach((msg) => {
-              const messageDiv = document.createElement("div");
-              messageDiv.className = `message ${msg.role}`;
-              messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(msg.content)}</div>`;
-              messages.appendChild(messageDiv);
-            });
+            if (data.messages.length === 0) {
+              messages.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-comment-dots"></i>
+                            <p>This conversation is empty. Start by sending a message!</p>
+                        </div>
+                    `;
+            } else {
+              data.messages.forEach((msg) => {
+                const messageDiv = document.createElement("div");
+                messageDiv.className = `message ${msg.role}`;
+                messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(msg.content)}</div>`;
+                messages.appendChild(messageDiv);
+              });
+            }
 
-            renderMessages();
+            hljs.highlightAll();
             scrollToBottom();
           });
 
-        const conversationItems = document.getElementsByClassName("conversation-item");
+        const conversationItems =
+          document.getElementsByClassName("conversation-item");
         for (let item of conversationItems) {
           item.classList.remove("active");
         }
         const activeItem = document.querySelector(
-          `.conversation-item[data-id='${conversationId}']`
+          `.conversation-item[data-id='${conversationId}']`,
         );
         if (activeItem) {
           activeItem.classList.add("active");
@@ -390,7 +545,7 @@
             .then((data) => {
               if (data.success) {
                 const conversationItem = document.querySelector(
-                  `.conversation-item[data-id='${conversationId}']`
+                  `.conversation-item[data-id='${conversationId}']`,
                 );
                 if (conversationItem) {
                   conversationItem.remove();
@@ -398,12 +553,59 @@
                 if (currentConversationId === conversationId) {
                   currentConversationId = null;
                   document.getElementById("messages").innerHTML = "";
-                  document.getElementById("conversation-title").textContent = "Welcome, {{ username }}";
+                  document.getElementById("conversation-title").textContent =
+                    "Welcome, {{ username }}";
                 }
               } else {
                 alert("Failed to delete conversation");
               }
             });
+        }
+      }
+
+      function editConversationTitle(conversationId) {
+        const conversationItem = document.querySelector(
+          `.conversation-item[data-id='${conversationId}']`,
+        );
+        const titleSpan = conversationItem.querySelector(".title");
+        const currentTitle = titleSpan.textContent.trim();
+        const newTitle = prompt("Enter new conversation title:", currentTitle);
+
+        if (newTitle && newTitle !== currentTitle) {
+          fetch(`/update_conversation_title/${conversationId}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title: newTitle }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                titleSpan.innerHTML = `<i class="fas fa-comments"></i> ${newTitle}`;
+                if (currentConversationId === conversationId) {
+                  document.getElementById("conversation-title").textContent =
+                    newTitle;
+                }
+              } else {
+                alert("Failed to update conversation title");
+              }
+            });
+        }
+      }
+
+      function showTypingIndicator() {
+        const typingIndicator = document.createElement("div");
+        typingIndicator.className = "typing-indicator";
+        typingIndicator.innerHTML = "<span></span><span></span><span></span>";
+        document.getElementById("messages").appendChild(typingIndicator);
+        scrollToBottom();
+      }
+
+      function hideTypingIndicator() {
+        const typingIndicator = document.querySelector(".typing-indicator");
+        if (typingIndicator) {
+          typingIndicator.remove();
         }
       }
 
@@ -428,42 +630,58 @@
         userInput.value = "";
 
         scrollToBottom();
+        showTypingIndicator();
 
-        const response = await fetch("/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: messageToBeSent,
-            conversation_id: currentConversationId,
-          }),
-        });
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: messageToBeSent,
+              conversation_id: currentConversationId,
+            }),
+          });
 
-        if (response.ok) {
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let aiMessageDiv = document.createElement("div");
-          aiMessageDiv.className = "message assistant";
-          let aiMessageContentDiv = document.createElement("div");
-          aiMessageContentDiv.className = "markdown-content";
-          aiMessageDiv.appendChild(aiMessageContentDiv);
-          messages.appendChild(aiMessageDiv);
+          if (response.ok) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let aiMessageDiv = document.createElement("div");
+            aiMessageDiv.className = "message assistant";
+            let aiMessageContentDiv = document.createElement("div");
+            aiMessageContentDiv.className = "markdown-content";
+            aiMessageDiv.appendChild(aiMessageContentDiv);
+            messages.appendChild(aiMessageDiv);
 
-          let partialText = "";
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            partialText += decoder.decode(value);
-            aiMessageContentDiv.innerHTML = renderMessage(partialText);
-            messages.scrollTop = messages.scrollHeight;
+            hideTypingIndicator();
+
+            let fullText = "";
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              fullText += decoder.decode(value);
+              aiMessageContentDiv.innerHTML = renderMessage(fullText);
+              hljs.highlightAll();
+              scrollToBottom();
+            }
+          } else {
+            throw new Error("Failed to send message");
           }
+        } catch (error) {
+          console.error("Error:", error);
+          alert(
+            "An error occurred while sending the message. Please try again.",
+          );
+        } finally {
+          hideTypingIndicator();
           scrollToBottom();
         }
       }
 
       window.onload = function () {
-        const conversations = document.getElementsByClassName("conversation-item");
+        const conversations =
+          document.getElementsByClassName("conversation-item");
         if (conversations.length > 0) {
           loadConversation(conversations[0].getAttribute("data-id"));
         } else {
