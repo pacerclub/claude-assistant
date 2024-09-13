@@ -8,6 +8,12 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css"
+    />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
 
@@ -332,6 +338,95 @@
         background-color: transparent;
         padding: 0;
       }
+
+      .markdown-content pre {
+  background-color: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content code {
+  font-family: 'Fira Code', 'Roboto Mono', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  color: #24292e;
+}
+
+/* Syntax highlighting styles */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: #d73a49;
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-name,
+.hljs-type,
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-built_in,
+.hljs-addition,
+.hljs-variable,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: #032f62;
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion,
+.hljs-meta {
+  color: #6a737d;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-title,
+.hljs-section,
+.hljs-doctag,
+.hljs-type,
+.hljs-name,
+.hljs-strong {
+  font-weight: bold;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-number {
+  color: #005cc5;
+}
+
+.hljs-operator,
+.hljs-punctuation {
+  color: #24292e;
+}
+
+.hljs-property {
+  color: #e36209;
+}
+
+.hljs-tag {
+  color: #22863a;
+}
+
+.hljs-function {
+  color: #6f42c1;
+}
     </style>
   </head>
   <body>
@@ -398,24 +493,28 @@
         mangle: false,
         breaks: true,
         gfm: true,
-        highlight: function (code, language) {
-          if (language && hljs.getLanguage(language)) {
-            return hljs.highlight(code, { language }).value;
-          } else {
-            return hljs.highlightAuto(code).value;
-          }
-        },
       });
 
       function renderMessage(content) {
         const parsedContent = marked.parse(content);
-        return DOMPurify.sanitize(parsedContent, {
+        const sanitizedContent = DOMPurify.sanitize(parsedContent, {
           ALLOW_DATA_ATTR: false,
           ADD_ATTR: ["target"],
           ADD_TAGS: ["iframe"],
           FORBID_TAGS: ["style", "input", "form"],
           FORBID_ATTR: ["style", "onerror", "onload"],
         });
+
+        // Create a temporary div to hold the content
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = sanitizedContent;
+
+        // Apply syntax highlighting to code blocks
+        tempDiv.querySelectorAll("pre code").forEach((block) => {
+          hljs.highlightElement(block);
+        });
+
+        return tempDiv.innerHTML;
       }
 
       function scrollToBottom() {
@@ -519,7 +618,6 @@
               });
             }
 
-            hljs.highlightAll();
             scrollToBottom();
           });
 
@@ -662,7 +760,6 @@
               if (done) break;
               fullText += decoder.decode(value);
               aiMessageContentDiv.innerHTML = renderMessage(fullText);
-              hljs.highlightAll();
               scrollToBottom();
             }
           } else {
