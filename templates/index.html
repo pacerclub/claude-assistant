@@ -499,31 +499,37 @@
       });
 
       function renderMessage(content) {
-        // Escape HTML entities first
-        const escapeHtml = (unsafe) => {
-          return unsafe
-            .replace(/&/g, "&")
-            .replace(/</g, "<")
-            .replace(/>/g, ">")
-            .replace(/"/g, '"')
-            .replace(/'/g, "'");
-        };
+        // Step 1: Parse Markdown
+        let processedContent = marked.parse(content);
 
-        const escapedContent = escapeHtml(content);
+        // Step 2: Replace code blocks with properly formatted ones
+        processedContent = processedContent.replace(
+          /<pre><code>([\s\S]+?)<\/code><\/pre>/g,
+          (match, code) => {
+            const languageMatch = code.match(/^(\w+)\n/);
+            let language = "plaintext";
+            if (languageMatch) {
+              language = languageMatch[1];
+              code = code.slice(language.length + 1);
+            }
+            const highlightedCode = hljs.highlight(code.trim(), {
+              language,
+            }).value;
+            return `<pre><code class="hljs ${language}">${highlightedCode}</code></pre>`;
+          },
+        );
 
-        // Now parse the escaped content as Markdown
-        const parsedContent = marked.parse(escapedContent);
-
-        // Sanitize the parsed content
-        const sanitizedContent = DOMPurify.sanitize(parsedContent, {
+        // Step 3: Sanitize content
+        processedContent = DOMPurify.sanitize(processedContent, {
           ALLOW_DATA_ATTR: false,
-          ADD_ATTR: ["target"],
+          ADD_ATTR: ["target", "class"],
           FORBID_TAGS: ["style", "input", "form", "script", "iframe"],
           FORBID_ATTR: ["style", "onerror", "onload"],
         });
 
-        return sanitizedContent;
+        return processedContent;
       }
+
       function scrollToBottom() {
         const messages = document.getElementById("messages");
         messages.scrollTop = messages.scrollHeight;
@@ -612,7 +618,7 @@
             if (data.messages.length === 0) {
               messages.innerHTML = `
           <div class="empty-state">
-            <i class="fas fa-comment-dots"></i>
+            <i class="fas fa-comments"></i>
             <p>This conversation is empty. Start by sending a message!</p>
           </div>
         `;
@@ -623,6 +629,7 @@
                 messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(msg.content)}</div>`;
                 messages.appendChild(messageDiv);
               });
+              hljs.highlightAll();
             }
 
             scrollToBottom();
@@ -767,6 +774,7 @@
               if (done) break;
               fullText += decoder.decode(value);
               aiMessageContentDiv.innerHTML = renderMessage(fullText);
+              hljs.highlightAll();
               scrollToBottom();
             }
           } else {
@@ -784,6 +792,7 @@
       }
 
       window.onload = function () {
+        hljs.highlightAll();
         const conversations =
           document.getElementsByClassName("conversation-item");
         if (conversations.length > 0) {
