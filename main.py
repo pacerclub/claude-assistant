@@ -235,6 +235,15 @@ def chat():
     response_text = handle_conversation(user_query, conversation)
     return response_text
 
+@app.route('/delete_conversation/<int:conversation_id>', methods=['DELETE'])
+@login_required
+def delete_conversation(conversation_id):
+    conversation = Conversation.query.filter_by(id=conversation_id, user_id=current_user.id).first()
+    if conversation:
+        db.session.delete(conversation)
+        db.session.commit()
+        return jsonify({'success': True}), 200
+    return jsonify({'success': False, 'error': 'Conversation not found'}), 404
 
 if __name__ == '__main__':
     with app.app_context():
