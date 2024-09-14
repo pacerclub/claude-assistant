@@ -39,7 +39,7 @@
       }
 
       .sidebar {
-        width: 220px;
+        width: 280px;
         height: 100vh;
         background-color: #fff;
         border-right: 1px solid #e0e0e0;
@@ -49,9 +49,69 @@
         flex-direction: column;
       }
 
-      .sidebar h2 {
-        text-align: center;
-        font-size: 21px;
+      .sidebar-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .logo {
+        width: 60px;
+        height: 60px;
+        margin-right: 15px;
+        object-fit: contain;
+        flex-shrink: 0;
+        border-radius: 5px;
+      }
+
+      .title-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .sidebar-header h2,
+      .sidebar-header h3 {
+        margin: 0;
+        padding: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .sidebar-header h2 {
+        font-size: 26px;
+        font-weight: 600;
+      }
+
+      .sidebar-header h3 {
+        font-size: 14px;
+        font-weight: 400;
+        color: #666;
+      }
+
+      .new-conversation-btn {
+        margin-top: 15px;
+        font-size: 16px;
+        padding: 10px 15px;
+      }
+
+      @media (max-width: 768px) {
+        .sidebar {
+          width: 100%;
+          height: auto;
+          border-right: none;
+          border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-header {
+          justify-content: center;
+        }
+
+        .title-container {
+          align-items: center;
+        }
       }
 
       .main-content {
@@ -431,10 +491,13 @@
       a {
         color: #007aff;
         text-decoration: none;
-        transition: color 0.3s ease, text-decoration 0.3s ease;
+        transition:
+          color 0.3s ease,
+          text-decoration 0.3s ease;
       }
 
-      a:hover, a:focus {
+      a:hover,
+      a:focus {
         color: #005ecb;
         text-decoration: underline;
       }
@@ -442,7 +505,17 @@
   </head>
   <body>
     <div class="sidebar">
-      <h2>Pacer Club Assistant</h2>
+      <div class="sidebar-header">
+        <img
+          src="https://pacer.org.cn/logo.png"
+          alt="Pacer Club Logo"
+          class="logo"
+        />
+        <div class="title-container">
+          <h2>Pacer Club</h2>
+          <h3>Claude Assistant</h3>
+        </div>
+      </div>
       <button class="new-conversation-btn" onclick="newConversation()">
         <i class="fas fa-plus"></i> New Conversation
       </button>
@@ -900,20 +973,20 @@
       };
 
       function copyCode(button) {
-        const pre = button.closest('.code-block-header').nextElementSibling;
-        const code = pre.querySelector('code');
-        const textArea = document.createElement('textarea');
+        const pre = button.closest(".code-block-header").nextElementSibling;
+        const code = pre.querySelector("code");
+        const textArea = document.createElement("textarea");
         textArea.value = code.textContent;
         document.body.appendChild(textArea);
         textArea.select();
-        document.execCommand('copy');
+        document.execCommand("copy");
         document.body.removeChild(textArea);
 
         // Change button icon temporarily
-        const icon = button.querySelector('i');
-        icon.className = 'fas fa-check';
+        const icon = button.querySelector("i");
+        icon.className = "fas fa-check";
         setTimeout(() => {
-          icon.className = 'fas fa-copy';
+          icon.className = "fas fa-copy";
         }, 2000);
       }
     </script>
