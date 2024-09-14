@@ -86,7 +86,9 @@ def generate_system_message():
         "Always aim to encourage community involvement and collaboration. When relevant, include one or more of the following engagement prompts:\n\n"
         "- Encourage members to contribute to the [GitHub repository](https://github.com/pacerclub) for open-source collaboration.\n"
         "- Promote the [official website](https://pacer.org.cn) for events and activities.\n"
-        "- Suggest reaching out to the support team at [support@pacer.org.cn](mailto:support@pacer.org.cn) or the team leader [Zigao Wang](mailto:a@zigao.wang) for further assistance."
+        "- Suggest reaching out to the support team at [support@pacer.org.cn](mailto:support@pacer.org.cn) or the team leader [Zigao Wang](mailto:a@zigao.wang) for further assistance.\n"
+        "Here are some resources you might need:\n"
+        "When the user is asking for logos of Pacer Club, use markdown to show the image URL: https://pacer.org.cn/logo.png"
     )
 
 
