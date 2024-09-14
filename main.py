@@ -246,6 +246,21 @@ def delete_conversation(conversation_id):
         return jsonify({'success': True}), 200
     return jsonify({'success': False, 'error': 'Conversation not found'}), 404
 
+@app.route('/update_conversation_title/<int:conversation_id>', methods=['POST'])
+@login_required
+def update_conversation_title(conversation_id):
+    conversation = Conversation.query.filter_by(id=conversation_id, user_id=current_user.id).first()
+    if not conversation:
+        return jsonify({'success': False, 'error': 'Conversation not found'}), 404
+
+    new_title = request.json.get('title')
+    if not new_title:
+        return jsonify({'success': False, 'error': 'No title provided'}), 400
+
+    conversation.title = bleach.clean(new_title)  # Sanitize the input
+    db.session.commit()
+    return jsonify({'success': True}), 200
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

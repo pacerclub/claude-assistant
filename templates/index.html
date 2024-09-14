@@ -610,35 +610,43 @@
       }
 
       function editConversationTitle(conversationId) {
-        const conversationItem = document.querySelector(
-          `.conversation-item[data-id='${conversationId}']`
-        );
-        const titleSpan = conversationItem.querySelector(".title");
-        const currentTitle = titleSpan.textContent.trim();
-        const newTitle = prompt("Enter new conversation title:", currentTitle);
+  const conversationItem = document.querySelector(
+    `.conversation-item[data-id='${conversationId}']`
+  );
+  const titleSpan = conversationItem.querySelector(".title");
+  const currentTitle = titleSpan.textContent.trim();
+  const newTitle = prompt("Enter new conversation title:", currentTitle);
 
-        if (newTitle && newTitle !== currentTitle) {
-          fetch(`/update_conversation_title/${conversationId}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ title: newTitle }),
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              if (data.success) {
-                titleSpan.textContent = newTitle;
-                if (currentConversationId === conversationId) {
-                  document.getElementById("conversation-title").textContent =
-                    newTitle;
-                }
-              } else {
-                alert("Failed to update conversation title");
-              }
-            });
+  if (newTitle && newTitle !== currentTitle) {
+    fetch(`/update_conversation_title/${conversationId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title: newTitle }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      }
+        return response.json();
+      })
+      .then((data) => {
+        if (data.success) {
+          titleSpan.textContent = newTitle;
+          if (currentConversationId === conversationId) {
+            document.getElementById("conversation-title").textContent = newTitle;
+          }
+        } else {
+          throw new Error("Server indicated failure");
+        }
+      })
+      .catch((error) => {
+        console.error("Error updating conversation title:", error);
+        alert("An error occurred while updating the conversation title. Please try again.");
+      });
+  }
+}
 
       function showTypingIndicator() {
         const typingIndicator = document.createElement("div");
