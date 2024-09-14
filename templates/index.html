@@ -36,7 +36,6 @@
         height: 100vh;
         display: flex;
         overflow: hidden;
-        font-size: 14px;
       }
 
       .sidebar {
@@ -52,6 +51,7 @@
 
       .sidebar h2 {
         text-align: center;
+        font-size: 21px;
       }
 
       .main-content {
@@ -119,7 +119,7 @@
         border-radius: 8px;
         border: 1px solid #d1d1d1;
         margin-right: 10px;
-        font-size: 14px;
+        font-size: 16px;
         resize: vertical;
         min-height: 80px;
         font-family: inherit;
@@ -132,7 +132,7 @@
         background-color: #007aff;
         color: #fff;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 16px;
       }
 
       .markdown-content {
@@ -176,7 +176,7 @@
         padding: 8px;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 13px;
+        font-size: 14px;
         margin-bottom: 15px;
         display: flex;
         align-items: center;
@@ -355,7 +355,7 @@
 
       .markdown-content code {
         font-family: "Fira Code", "Roboto Mono", "Consolas", monospace;
-        font-size: 12px;
+        font-size: 14px;
         line-height: 1.5;
       }
 
@@ -539,11 +539,11 @@
 
         // Escape HTML entities in the code
         let code = block.textContent
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
+          .replace(/&/g, "&")
+          .replace(/</g, "<")
+          .replace(/>/g, ">")
+          .replace(/"/g, '"')
+          .replace(/'/g, "'");
 
         try {
           // Disable the console temporarily to suppress warnings
