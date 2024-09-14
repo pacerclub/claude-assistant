@@ -501,6 +501,68 @@
         color: #005ecb;
         text-decoration: underline;
       }
+
+      @media (max-width: 768px) {
+        body {
+          flex-direction: column;
+        }
+
+        .sidebar {
+          position: fixed;
+          left: -320px;
+          top: 0;
+          bottom: 0;
+          width: 280px;
+          z-index: 1000;
+          transition: left 0.3s ease-in-out;
+        }
+
+        .sidebar.open {
+          left: 0;
+        }
+
+        .main-content {
+          width: 100%;
+          height: 100vh;
+        }
+
+        .container {
+          margin: 0;
+          border-radius: 0;
+        }
+      }
+
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+      }
+
+      @media (max-width: 768px) {
+        .sidebar-overlay.active {
+          display: block;
+        }
+      }
+
+      .hamburger-menu {
+        display: none;
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        color: #007aff;
+        cursor: pointer;
+      }
+
+      @media (max-width: 768px) {
+        .hamburger-menu {
+          display: block;
+        }
+      }
     </style>
   </head>
   <body>
@@ -546,6 +608,9 @@
     <div class="main-content">
       <div class="container">
         <div class="header">
+          <button id="sidebar-toggle" class="hamburger-menu">
+            <i class="fas fa-bars"></i>
+          </button>
           <span id="conversation-title">Welcome, {{ username }}</span>
           <a href="{{ url_for('logout') }}" class="logout-btn">
             Logout <i class="fas fa-sign-out-alt"></i>
@@ -570,6 +635,7 @@
         </div>
       </div>
     </div>
+    <div class="sidebar-overlay"></div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.3/purify.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
@@ -989,6 +1055,30 @@
           icon.className = "fas fa-copy";
         }, 2000);
       }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const sidebarToggle = document.getElementById("sidebar-toggle");
+        const sidebar = document.querySelector(".sidebar");
+        const sidebarOverlay = document.querySelector(".sidebar-overlay");
+
+        function toggleSidebar() {
+          sidebar.classList.toggle("open");
+          sidebarOverlay.classList.toggle("active");
+        }
+
+        sidebarToggle.addEventListener("click", toggleSidebar);
+        sidebarOverlay.addEventListener("click", toggleSidebar);
+
+        // Close sidebar when clicking outside
+        document.addEventListener("click", function (event) {
+          const isClickInside =
+            sidebar.contains(event.target) ||
+            sidebarToggle.contains(event.target);
+          if (!isClickInside && sidebar.classList.contains("open")) {
+            toggleSidebar();
+          }
+        });
+      });
     </script>
   </body>
 </html>
