@@ -439,19 +439,15 @@
 
           // Replace code blocks with properly formatted ones
           processedContent = processedContent.replace(
-            /<pre><code>([\s\S]+?)<\/code><\/pre>/g,
-            (match, code) => {
-              const languageMatch = code.match(/^(\w+)\n/);
-              let language = "plaintext";
-              if (languageMatch) {
-                language = languageMatch[1];
-                code = code.slice(language.length + 1);
-              }
+            /<pre><code(?:\s+class="(\w+)")?>([\s\S]+?)<\/code><\/pre>/g,
+            (match, language, code) => {
+              language = language || "plaintext";
+              code = code.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
               const highlightedCode = hljs.highlight(code.trim(), {
                 language,
               }).value;
               return `<pre><code class="hljs ${language}">${highlightedCode}</code></pre>`;
-            },
+            }
           );
 
           // Sanitize content
@@ -482,13 +478,12 @@
 
       function formatDate(date) {
         const options = {
-          year: "numeric",
-          month: "long",
+          month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
         };
-        return new Date(date).toLocaleDateString("en-US", options);
+        return new Date(date).toLocaleString("en-US", options);
       }
 
       function newConversation() {
@@ -509,18 +504,18 @@
             li.className = "conversation-item";
             li.setAttribute("data-id", data.id);
             li.innerHTML = `
-        <span class="title" onclick="loadConversation(${data.id})">
-          <i class="fas fa-comments"></i> ${data.title}
-        </span>
-        <div class="conversation-actions">
-          <button class="edit-btn" onclick="editConversationTitle(${data.id})">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button class="delete-btn" onclick="deleteConversation(${data.id})">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-      `;
+              <span class="title" onclick="loadConversation(${data.id})">
+                ${data.title}
+              </span>
+              <div class="conversation-actions">
+                <button class="edit-btn" onclick="editConversationTitle(${data.id})">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-btn" onclick="deleteConversation(${data.id})">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            `;
             conversationList.prepend(li);
             loadConversation(data.id);
           });
@@ -543,7 +538,7 @@
             const conversationTitle =
               document.getElementById("conversation-title");
             const activeItem = document.querySelector(
-              `.conversation-item[data-id='${conversationId}']`,
+              `.conversation-item[data-id='${conversationId}']`
             );
             if (activeItem) {
               conversationTitle.textContent = activeItem
@@ -553,17 +548,19 @@
 
             if (data.messages.length === 0) {
               messages.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-comments"></i>
-                        <p>This conversation is empty. Start by sending a message!</p>
-                    </div>
-                `;
+                <div class="empty-state">
+                  <i class="fas fa-comments"></i>
+                  <p>This conversation is empty. Start by sending a message!</p>
+                </div>
+              `;
             } else {
               removeEmptyState(); // Remove empty state if there are messages
               data.messages.forEach((msg) => {
                 const messageDiv = document.createElement("div");
                 messageDiv.className = `message ${msg.role}`;
-                messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(msg.content)}</div>`;
+                messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(
+                  msg.content
+                )}</div>`;
                 messages.appendChild(messageDiv);
               });
               hljs.highlightAll();
@@ -578,7 +575,7 @@
           item.classList.remove("active");
         }
         const activeItem = document.querySelector(
-          `.conversation-item[data-id='${conversationId}']`,
+          `.conversation-item[data-id='${conversationId}']`
         );
         if (activeItem) {
           activeItem.classList.add("active");
@@ -594,7 +591,7 @@
             .then((data) => {
               if (data.success) {
                 const conversationItem = document.querySelector(
-                  `.conversation-item[data-id='${conversationId}']`,
+                  `.conversation-item[data-id='${conversationId}']`
                 );
                 if (conversationItem) {
                   conversationItem.remove();
@@ -614,7 +611,7 @@
 
       function editConversationTitle(conversationId) {
         const conversationItem = document.querySelector(
-          `.conversation-item[data-id='${conversationId}']`,
+          `.conversation-item[data-id='${conversationId}']`
         );
         const titleSpan = conversationItem.querySelector(".title");
         const currentTitle = titleSpan.textContent.trim();
@@ -631,7 +628,7 @@
             .then((response) => response.json())
             .then((data) => {
               if (data.success) {
-                titleSpan.innerHTML = `<i class="fas fa-comments"></i> ${newTitle}`;
+                titleSpan.textContent = newTitle;
                 if (currentConversationId === conversationId) {
                   document.getElementById("conversation-title").textContent =
                     newTitle;
@@ -679,7 +676,10 @@
 
         const userMessageDiv = document.createElement("div");
         userMessageDiv.className = "message user";
-        userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(userMessage, isRawHTML)}</div>`;
+        userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(
+          userMessage,
+          isRawHTML
+        )}</div>`;
         messages.appendChild(userMessageDiv);
 
         const messageToBeSent = userInput.value;
@@ -708,7 +708,7 @@
             let aiMessageContentDiv = document.createElement("div");
             aiMessageContentDiv.className = "markdown-content";
             aiMessageDiv.appendChild(aiMessageContentDiv);
-            messages.appendChild(aiMessageDiv);
+             messages.appendChild(aiMessageDiv);
 
             hideTypingIndicator();
 
@@ -727,11 +727,18 @@
         } catch (error) {
           console.error("Error:", error);
           alert(
-            "An error occurred while sending the message. Please try again.",
+            "An error occurred while sending the message. Please try again."
           );
         } finally {
           hideTypingIndicator();
           scrollToBottom();
+        }
+      }
+
+      function removeEmptyState() {
+        const emptyState = document.querySelector(".empty-state");
+        if (emptyState) {
+          emptyState.remove();
         }
       }
 
@@ -745,13 +752,6 @@
           newConversation();
         }
       };
-
-      function removeEmptyState() {
-        const emptyState = document.querySelector(".empty-state");
-        if (emptyState) {
-          emptyState.remove();
-        }
-      }
     </script>
   </body>
 </html>
