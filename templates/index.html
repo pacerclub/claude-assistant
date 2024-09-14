@@ -355,6 +355,41 @@
         font-size: 14px;
         line-height: 1.5;
       }
+
+      .typing-indicator {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .typing-indicator span {
+        height: 10px;
+        width: 10px;
+        float: left;
+        margin: 0 1px;
+        background-color: #9e9ea1;
+        display: block;
+        border-radius: 50%;
+        opacity: 0.4;
+      }
+
+      .typing-indicator span:nth-of-type(1) {
+        animation: 1s blink infinite 0.3333s;
+      }
+
+      .typing-indicator span:nth-of-type(2) {
+        animation: 1s blink infinite 0.6666s;
+      }
+
+      .typing-indicator span:nth-of-type(3) {
+        animation: 1s blink infinite 0.9999s;
+      }
+
+      @keyframes blink {
+        50% {
+          opacity: 1;
+        }
+      }
     </style>
   </head>
   <body>
@@ -425,40 +460,155 @@
 
       function renderMessage(content, isRawHTML = false) {
         if (isRawHTML) {
-          // Encode HTML entities to display raw HTML as plain text
-          const encodedContent = content
+          return content
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
-          return encodedContent;
+        }
+
+        // Use marked to parse the markdown
+        let processedContent = marked.parse(content);
+
+        // Sanitize the content
+        processedContent = DOMPurify.sanitize(processedContent, {
+          ALLOW_DATA_ATTR: false,
+          ADD_ATTR: ["target", "class"],
+          FORBID_TAGS: ["style", "input", "form", "script", "iframe"],
+          FORBID_ATTR: ["style", "onerror", "onload"],
+        });
+
+        // Create a temporary div to hold the content
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = processedContent;
+
+        // Find all code blocks and apply custom syntax highlighting
+        tempDiv.querySelectorAll("pre code").forEach((block) => {
+          customHighlight(block);
+        });
+
+        return tempDiv.innerHTML;
+      }
+      function customHighlight(block) {
+        let language = block.getAttribute("class");
+        if (language) {
+          language = language.replace("language-", "");
         } else {
-          // Render Markdown content
-          let processedContent = marked.parse(content);
+          language = "plaintext";
+        }
 
-          // Replace code blocks with properly formatted ones
-          processedContent = processedContent.replace(
-            /<pre><code(?:\s+class="(\w+)")?>([\s\S]+?)<\/code><\/pre>/g,
-            (match, language, code) => {
-              language = language || "plaintext";
-              code = code.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-              const highlightedCode = hljs.highlight(code.trim(), {
-                language,
-              }).value;
-              return `<pre><code class="hljs ${language}">${highlightedCode}</code></pre>`;
-            }
-          );
+        // Escape HTML entities in the code
+        let code = block.textContent
+          .replace(/&/g, "&")
+          .replace(/</g, "<")
+          .replace(/>/g, ">")
+          .replace(/"/g, '"')
+          .replace(/'/g, "'");
 
-          // Sanitize content
-          processedContent = DOMPurify.sanitize(processedContent, {
-            ALLOW_DATA_ATTR: false,
-            ADD_ATTR: ["target", "class"],
-            FORBID_TAGS: ["style", "input", "form", "script", "iframe"],
-            FORBID_ATTR: ["style", "onerror", "onload"],
+        try {
+          // Disable the console temporarily to suppress warnings
+          const originalConsoleWarn = console.warn;
+          console.warn = function () {};
+
+          code = hljs.highlight(code, {
+            language: language,
+            ignoreIllegals: true,
+          }).value;
+
+          // Restore the console
+          console.warn = originalConsoleWarn;
+
+          block.innerHTML = code;
+          block.classList.add("hljs");
+        } catch (e) {
+          console.warn(`Failed to highlight code block: ${e.message}`);
+          // If highlighting fails, just use the escaped code
+          block.textContent = code;
+        }
+      }
+
+      function hideTypingIndicator() {
+        const typingIndicator = document.querySelector(".typing-indicator");
+        if (typingIndicator) {
+          typingIndicator.remove();
+        }
+      }
+
+      async function sendMessage() {
+        if (!currentConversationId) {
+          alert("Please select or create a conversation first.");
+          return;
+        }
+
+        const userInput = document.getElementById("user-input");
+        const messages = document.getElementById("messages");
+
+        const userMessage = userInput.value;
+        if (!userMessage.trim()) return;
+
+        removeEmptyState();
+
+        const isRawHTML =
+          userMessage.startsWith("<") && userMessage.endsWith(">");
+
+        const userMessageDiv = document.createElement("div");
+        userMessageDiv.className = "message user";
+        userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(userMessage, isRawHTML)}</div>`;
+        messages.appendChild(userMessageDiv);
+
+        const messageToBeSent = userInput.value;
+        userInput.value = "";
+
+        scrollToBottom();
+        showTypingIndicator();
+
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: messageToBeSent,
+              conversation_id: currentConversationId,
+            }),
           });
 
-          return processedContent;
+          if (response.ok) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let aiMessageDiv = document.createElement("div");
+            aiMessageDiv.className = "message assistant";
+            let aiMessageContentDiv = document.createElement("div");
+            aiMessageContentDiv.className = "markdown-content";
+            aiMessageDiv.appendChild(aiMessageContentDiv);
+            messages.appendChild(aiMessageDiv);
+
+            hideTypingIndicator();
+
+            let fullText = "";
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              fullText += decoder.decode(value);
+              aiMessageContentDiv.innerHTML = renderMessage(fullText);
+              function customHighlightAll() {
+                document.querySelectorAll("pre code").forEach(customHighlight);
+              }
+              scrollToBottom();
+            }
+          } else {
+            throw new Error("Failed to send message");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert(
+            "An error occurred while sending the message. Please try again.",
+          );
+        } finally {
+          hideTypingIndicator();
+          scrollToBottom();
         }
       }
 
@@ -538,7 +688,7 @@
             const conversationTitle =
               document.getElementById("conversation-title");
             const activeItem = document.querySelector(
-              `.conversation-item[data-id='${conversationId}']`
+              `.conversation-item[data-id='${conversationId}']`,
             );
             if (activeItem) {
               conversationTitle.textContent = activeItem
@@ -559,11 +709,13 @@
                 const messageDiv = document.createElement("div");
                 messageDiv.className = `message ${msg.role}`;
                 messageDiv.innerHTML = `<div class="markdown-content">${renderMessage(
-                  msg.content
+                  msg.content,
                 )}</div>`;
                 messages.appendChild(messageDiv);
               });
-              hljs.highlightAll();
+              function customHighlightAll() {
+                document.querySelectorAll("pre code").forEach(customHighlight);
+              }
             }
 
             scrollToBottom();
@@ -575,7 +727,7 @@
           item.classList.remove("active");
         }
         const activeItem = document.querySelector(
-          `.conversation-item[data-id='${conversationId}']`
+          `.conversation-item[data-id='${conversationId}']`,
         );
         if (activeItem) {
           activeItem.classList.add("active");
@@ -591,7 +743,7 @@
             .then((data) => {
               if (data.success) {
                 const conversationItem = document.querySelector(
-                  `.conversation-item[data-id='${conversationId}']`
+                  `.conversation-item[data-id='${conversationId}']`,
                 );
                 if (conversationItem) {
                   conversationItem.remove();
@@ -610,43 +762,46 @@
       }
 
       function editConversationTitle(conversationId) {
-  const conversationItem = document.querySelector(
-    `.conversation-item[data-id='${conversationId}']`
-  );
-  const titleSpan = conversationItem.querySelector(".title");
-  const currentTitle = titleSpan.textContent.trim();
-  const newTitle = prompt("Enter new conversation title:", currentTitle);
+        const conversationItem = document.querySelector(
+          `.conversation-item[data-id='${conversationId}']`,
+        );
+        const titleSpan = conversationItem.querySelector(".title");
+        const currentTitle = titleSpan.textContent.trim();
+        const newTitle = prompt("Enter new conversation title:", currentTitle);
 
-  if (newTitle && newTitle !== currentTitle) {
-    fetch(`/update_conversation_title/${conversationId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ title: newTitle }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (newTitle && newTitle !== currentTitle) {
+          fetch(`/update_conversation_title/${conversationId}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title: newTitle }),
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              return response.json();
+            })
+            .then((data) => {
+              if (data.success) {
+                titleSpan.textContent = newTitle;
+                if (currentConversationId === conversationId) {
+                  document.getElementById("conversation-title").textContent =
+                    newTitle;
+                }
+              } else {
+                throw new Error("Server indicated failure");
+              }
+            })
+            .catch((error) => {
+              console.error("Error updating conversation title:", error);
+              alert(
+                "An error occurred while updating the conversation title. Please try again.",
+              );
+            });
         }
-        return response.json();
-      })
-      .then((data) => {
-        if (data.success) {
-          titleSpan.textContent = newTitle;
-          if (currentConversationId === conversationId) {
-            document.getElementById("conversation-title").textContent = newTitle;
-          }
-        } else {
-          throw new Error("Server indicated failure");
-        }
-      })
-      .catch((error) => {
-        console.error("Error updating conversation title:", error);
-        alert("An error occurred while updating the conversation title. Please try again.");
-      });
-  }
-}
+      }
 
       function showTypingIndicator() {
         const typingIndicator = document.createElement("div");
@@ -654,93 +809,6 @@
         typingIndicator.innerHTML = "<span></span><span></span><span></span>";
         document.getElementById("messages").appendChild(typingIndicator);
         scrollToBottom();
-      }
-
-      function hideTypingIndicator() {
-        const typingIndicator = document.querySelector(".typing-indicator");
-        if (typingIndicator) {
-          typingIndicator.remove();
-        }
-      }
-
-      async function sendMessage() {
-        if (!currentConversationId) {
-          alert("Please select or create a conversation first.");
-          return;
-        }
-
-        const userInput = document.getElementById("user-input");
-        const messages = document.getElementById("messages");
-
-        const userMessage = userInput.value;
-        if (!userMessage.trim()) return;
-
-        // Remove the empty state if it exists
-        removeEmptyState();
-
-        // Detect if the user message is raw HTML or Markdown
-        const isRawHTML =
-          userMessage.startsWith("<") && userMessage.endsWith(">");
-
-        const userMessageDiv = document.createElement("div");
-        userMessageDiv.className = "message user";
-        userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(
-          userMessage,
-          isRawHTML
-        )}</div>`;
-        messages.appendChild(userMessageDiv);
-
-        const messageToBeSent = userInput.value;
-        userInput.value = "";
-
-        scrollToBottom();
-        showTypingIndicator();
-
-        try {
-          const response = await fetch("/chat", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              message: messageToBeSent,
-              conversation_id: currentConversationId,
-            }),
-          });
-
-          if (response.ok) {
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let aiMessageDiv = document.createElement("div");
-            aiMessageDiv.className = "message assistant";
-            let aiMessageContentDiv = document.createElement("div");
-            aiMessageContentDiv.className = "markdown-content";
-            aiMessageDiv.appendChild(aiMessageContentDiv);
-             messages.appendChild(aiMessageDiv);
-
-            hideTypingIndicator();
-
-            let fullText = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              fullText += decoder.decode(value);
-              aiMessageContentDiv.innerHTML = renderMessage(fullText);
-              hljs.highlightAll();
-              scrollToBottom();
-            }
-          } else {
-            throw new Error("Failed to send message");
-          }
-        } catch (error) {
-          console.error("Error:", error);
-          alert(
-            "An error occurred while sending the message. Please try again."
-          );
-        } finally {
-          hideTypingIndicator();
-          scrollToBottom();
-        }
       }
 
       function removeEmptyState() {
@@ -751,7 +819,9 @@
       }
 
       window.onload = function () {
-        hljs.highlightAll();
+        function customHighlightAll() {
+          document.querySelectorAll("pre code").forEach(customHighlight);
+        }
         const conversations =
           document.getElementsByClassName("conversation-item");
         if (conversations.length > 0) {
