@@ -628,12 +628,13 @@
 
             if (data.messages.length === 0) {
               messages.innerHTML = `
-          <div class="empty-state">
-            <i class="fas fa-comments"></i>
-            <p>This conversation is empty. Start by sending a message!</p>
-          </div>
-        `;
+                    <div class="empty-state">
+                        <i class="fas fa-comments"></i>
+                        <p>This conversation is empty. Start by sending a message!</p>
+                    </div>
+                `;
             } else {
+              removeEmptyState(); // Remove empty state if there are messages
               data.messages.forEach((msg) => {
                 const messageDiv = document.createElement("div");
                 messageDiv.className = `message ${msg.role}`;
@@ -744,6 +745,9 @@
         const userMessage = userInput.value;
         if (!userMessage.trim()) return;
 
+        // Remove the empty state if it exists
+        removeEmptyState();
+
         // Detect if the user message is raw HTML or Markdown
         const isRawHTML =
           userMessage.startsWith("<") && userMessage.endsWith(">");
@@ -816,6 +820,13 @@
           newConversation();
         }
       };
+
+      function removeEmptyState() {
+        const emptyState = document.querySelector(".empty-state");
+        if (emptyState) {
+          emptyState.remove();
+        }
+      }
     </script>
   </body>
 </html>
