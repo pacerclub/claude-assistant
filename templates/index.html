@@ -390,6 +390,40 @@
           opacity: 1;
         }
       }
+
+      .code-block-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #f1f3f5;
+        padding: 5px 10px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-size: 0.9em;
+        color: #6c757d;
+      }
+
+      .code-block-header .language {
+        font-weight: bold;
+      }
+
+      .copy-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1em;
+        color: #6c757d;
+      }
+
+      .copy-button:hover {
+        color: #007bff;
+      }
+
+      .markdown-content pre {
+        margin-top: 0;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+      }
     </style>
   </head>
   <body>
@@ -500,11 +534,11 @@
 
         // Escape HTML entities in the code
         let code = block.textContent
-          .replace(/&/g, "&")
-          .replace(/</g, "<")
-          .replace(/>/g, ">")
-          .replace(/"/g, '"')
-          .replace(/'/g, "'");
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
 
         try {
           // Disable the console temporarily to suppress warnings
@@ -519,8 +553,26 @@
           // Restore the console
           console.warn = originalConsoleWarn;
 
-          block.innerHTML = code;
-          block.classList.add("hljs");
+          // Create code block header
+          const header = document.createElement("div");
+          header.className = "code-block-header";
+          header.innerHTML = `
+            <span class="language">${language}</span>
+            <button class="copy-button" onclick="copyCode(this)">
+              <i class="fas fa-copy"></i>
+            </button>
+          `;
+
+          // Wrap the code block in a container
+          const container = document.createElement("div");
+          container.appendChild(header);
+
+          const pre = document.createElement("pre");
+          pre.innerHTML = `<code class="hljs ${language}">${code}</code>`;
+          container.appendChild(pre);
+
+          // Replace the original code block with the new container
+          block.parentNode.replaceWith(container);
         } catch (e) {
           console.warn(`Failed to highlight code block: ${e.message}`);
           // If highlighting fails, just use the escaped code
@@ -830,6 +882,24 @@
           newConversation();
         }
       };
+
+      function copyCode(button) {
+        const pre = button.closest('.code-block-header').nextElementSibling;
+        const code = pre.querySelector('code');
+        const textArea = document.createElement('textarea');
+        textArea.value = code.textContent;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+
+        // Change button icon temporarily
+        const icon = button.querySelector('i');
+        icon.className = 'fas fa-check';
+        setTimeout(() => {
+          icon.className = 'fas fa-copy';
+        }, 2000);
+      }
     </script>
   </body>
 </html>
