@@ -39,7 +39,7 @@
       }
 
       .sidebar {
-        width: 250px;
+        width: 220px;
         height: 100vh;
         background-color: #fff;
         border-right: 1px solid #e0e0e0;
@@ -63,7 +63,7 @@
         background-color: #fff;
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin: 20px;
+        margin: 15px;
         overflow: hidden;
       }
 
@@ -71,19 +71,19 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 15px;
+        padding: 12px 15px;
         border-bottom: 1px solid #e0e0e0;
       }
 
       .messages {
         flex: 1;
-        padding: 15px;
+        padding: 12px;
         overflow-y: auto;
       }
 
       .message {
-        margin-bottom: 15px;
-        padding: 10px 12px;
+        margin-bottom: 12px;
+        padding: 8px 10px;
         border-radius: 8px;
         max-width: 80%;
         word-wrap: break-word;
@@ -104,30 +104,30 @@
 
       .input-container {
         display: flex;
-        padding: 15px;
+        padding: 12px;
         border-top: 1px solid #e0e0e0;
       }
 
       .input-container textarea {
         flex: 1;
-        padding: 10px;
+        padding: 8px;
         border-radius: 8px;
         border: 1px solid #d1d1d1;
         margin-right: 10px;
-        font-size: 16px;
+        font-size: 14px;
         resize: vertical;
-        min-height: 60px;
+        min-height: 50px;
         font-family: inherit;
       }
 
       .input-container button {
-        padding: 10px 15px;
+        padding: 8px 12px;
         border-radius: 8px;
         border: none;
         background-color: #007aff;
         color: #fff;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 600;
       }
 
@@ -135,30 +135,18 @@
         line-height: 1.5;
       }
 
-      .markdown-content pre {
-        background-color: #f4f4f4;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 10px;
-        overflow-x: auto;
-      }
-
-      .markdown-content code {
-        font-family: "Courier New", Courier, monospace;
-        font-size: 0.9em;
-      }
-
       .conversation-list {
         list-style-type: none;
         padding: 0;
+        margin-top: 10px;
       }
 
       .conversation-item {
         cursor: pointer;
-        padding: 10px;
-        margin-bottom: 5px;
+        padding: 8px 10px;
+        margin-bottom: 3px;
         background-color: #e9ecef;
-        border-radius: 5px;
+        border-radius: 4px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -169,18 +157,22 @@
         color: white;
       }
 
-      .conversation-item i {
-        margin-right: 10px;
+      .conversation-item .title {
+        font-size: 0.9em;
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .new-conversation-btn {
         background-color: #007aff;
         color: #fff;
         border: none;
-        padding: 10px;
+        padding: 8px;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         margin-bottom: 15px;
         display: flex;
@@ -208,78 +200,13 @@
         font-size: 1.2em;
       }
 
-      .delete-btn {
-        background: none;
-        border: none;
-        color: #dc3545;
-        cursor: pointer;
-        font-size: 14px;
-        padding: 5px;
-      }
-
-      .delete-btn:hover {
-        color: #bd2130;
-      }
-
-      .typing-indicator {
-        display: flex;
-        align-items: center;
-        margin-bottom: 15px;
-      }
-
-      .typing-indicator span {
-        height: 10px;
-        width: 10px;
-        float: left;
-        margin: 0 1px;
-        background-color: #9e9ea1;
-        display: block;
-        border-radius: 50%;
-        opacity: 0.4;
-      }
-
-      .typing-indicator span:nth-of-type(1) {
-        animation: 1s blink infinite 0.3333s;
-      }
-
-      .typing-indicator span:nth-of-type(2) {
-        animation: 1s blink infinite 0.6666s;
-      }
-
-      .typing-indicator span:nth-of-type(3) {
-        animation: 1s blink infinite 0.9999s;
-      }
-
-      @keyframes blink {
-        50% {
-          opacity: 1;
-        }
-      }
-
-      .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        color: #6c757d;
-      }
-
-      .empty-state i {
-        font-size: 48px;
-        margin-bottom: 20px;
-      }
-
-      .conversation-item .title {
-        flex-grow: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
       .conversation-actions {
-        display: flex;
-        gap: 5px;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+      }
+
+      .conversation-item:hover .conversation-actions {
+        opacity: 1;
       }
 
       .edit-btn,
@@ -287,8 +214,8 @@
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 14px;
-        padding: 5px;
+        font-size: 12px;
+        padding: 2px;
       }
 
       .edit-btn {
@@ -307,6 +234,20 @@
         color: #bd2130;
       }
 
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+      }
+
+      .empty-state i {
+        font-size: 48px;
+        margin-bottom: 20px;
+      }
+
       @media (max-width: 768px) {
         body {
           flex-direction: column;
@@ -321,55 +262,19 @@
           height: calc(100vh - 250px);
         }
       }
-      .markdown-content pre {
-        background-color: #f4f4f4;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 10px;
-        overflow-x: auto;
+
+      /* Syntax highlighting styles - Light Mode */
+      .hljs {
+        background: #f8f8f8;
+        color: #333;
       }
 
-      .markdown-content code {
-        font-family: "Courier New", Courier, monospace;
-        font-size: 0.9em;
-        background-color: #f4f4f4;
-        padding: 2px 4px;
-        border-radius: 4px;
-      }
-
-      .markdown-content pre code {
-        background-color: transparent;
-        padding: 0;
-      }
-
-      .markdown-content pre {
-        background-color: #f6f8fa;
-        border: 1px solid #e1e4e8;
-        border-radius: 6px;
-        padding: 16px;
-        overflow-x: auto;
-        margin: 1em 0;
-      }
-
-      .markdown-content code {
-        font-family: "Fira Code", "Roboto Mono", "Consolas", monospace;
-        font-size: 14px;
-        line-height: 1.5;
-      }
-
-      .markdown-content pre code {
-        background-color: transparent;
-        padding: 0;
-        color: #24292e;
-      }
-
-      /* Syntax highlighting styles */
       .hljs-keyword,
       .hljs-selector-tag,
       .hljs-literal,
       .hljs-section,
       .hljs-link {
-        color: #d73a49;
+        color: #0077aa;
       }
 
       .hljs-string,
@@ -384,14 +289,14 @@
       .hljs-variable,
       .hljs-template-tag,
       .hljs-template-variable {
-        color: #032f62;
+        color: #669900;
       }
 
       .hljs-comment,
       .hljs-quote,
       .hljs-deletion,
       .hljs-meta {
-        color: #6a737d;
+        color: #999;
       }
 
       .hljs-keyword,
@@ -411,24 +316,44 @@
       }
 
       .hljs-number {
-        color: #005cc5;
-      }
-
-      .hljs-operator,
-      .hljs-punctuation {
-        color: #24292e;
-      }
-
-      .hljs-property {
-        color: #e36209;
-      }
-
-      .hljs-tag {
-        color: #22863a;
+        color: #aa5500;
       }
 
       .hljs-function {
-        color: #6f42c1;
+        color: #dd4a68;
+      }
+
+      .hljs-params {
+        color: #3b8eea;
+      }
+
+      .hljs-class {
+        color: #0077aa;
+      }
+
+      .hljs-tag {
+        color: #63a35c;
+      }
+
+      .hljs-attr {
+        color: #795da3;
+      }
+
+      .hljs-regexp {
+        color: #af00af;
+      }
+
+      .markdown-content pre {
+        background-color: #f8f8f8;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 16px;
+      }
+
+      .markdown-content code {
+        font-family: "Fira Code", "Roboto Mono", "Consolas", monospace;
+        font-size: 14px;
+        line-height: 1.5;
       }
     </style>
   </head>
@@ -442,7 +367,7 @@
         {% for convo in conversations %}
         <li class="conversation-item" data-id="{{ convo.id }}">
           <span class="title" onclick="loadConversation({{ convo.id }})">
-            <i class="fas fa-comments"></i> {{ convo.title }}
+            {{ convo.title }}
           </span>
           <div class="conversation-actions">
             <button
