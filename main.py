@@ -226,7 +226,7 @@ def handle_conversation(user_query, conversation):
 @app.route('/chat', methods=['POST'])
 @login_required
 def chat():
-    user_query = bleach.clean(request.json.get('message'))
+    user_query = request.json.get('message')
     conversation_id = request.json.get('conversation_id')
     conversation = Conversation.query.get(conversation_id)
 

@@ -498,36 +498,47 @@
         gfm: true,
       });
 
-      function renderMessage(content) {
-        // Step 1: Parse Markdown
-        let processedContent = marked.parse(content);
+      function renderMessage(content, isRawHTML = false) {
+        if (isRawHTML) {
+          // Encode HTML entities to display raw HTML as plain text
+          const encodedContent = content
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+          return encodedContent;
+        } else {
+          // Render Markdown content
+          let processedContent = marked.parse(content);
 
-        // Step 2: Replace code blocks with properly formatted ones
-        processedContent = processedContent.replace(
-          /<pre><code>([\s\S]+?)<\/code><\/pre>/g,
-          (match, code) => {
-            const languageMatch = code.match(/^(\w+)\n/);
-            let language = "plaintext";
-            if (languageMatch) {
-              language = languageMatch[1];
-              code = code.slice(language.length + 1);
-            }
-            const highlightedCode = hljs.highlight(code.trim(), {
-              language,
-            }).value;
-            return `<pre><code class="hljs ${language}">${highlightedCode}</code></pre>`;
-          },
-        );
+          // Replace code blocks with properly formatted ones
+          processedContent = processedContent.replace(
+            /<pre><code>([\s\S]+?)<\/code><\/pre>/g,
+            (match, code) => {
+              const languageMatch = code.match(/^(\w+)\n/);
+              let language = "plaintext";
+              if (languageMatch) {
+                language = languageMatch[1];
+                code = code.slice(language.length + 1);
+              }
+              const highlightedCode = hljs.highlight(code.trim(), {
+                language,
+              }).value;
+              return `<pre><code class="hljs ${language}">${highlightedCode}</code></pre>`;
+            },
+          );
 
-        // Step 3: Sanitize content
-        processedContent = DOMPurify.sanitize(processedContent, {
-          ALLOW_DATA_ATTR: false,
-          ADD_ATTR: ["target", "class"],
-          FORBID_TAGS: ["style", "input", "form", "script", "iframe"],
-          FORBID_ATTR: ["style", "onerror", "onload"],
-        });
+          // Sanitize content
+          processedContent = DOMPurify.sanitize(processedContent, {
+            ALLOW_DATA_ATTR: false,
+            ADD_ATTR: ["target", "class"],
+            FORBID_TAGS: ["style", "input", "form", "script", "iframe"],
+            FORBID_ATTR: ["style", "onerror", "onload"],
+          });
 
-        return processedContent;
+          return processedContent;
+        }
       }
 
       function scrollToBottom() {
@@ -733,9 +744,13 @@
         const userMessage = userInput.value;
         if (!userMessage.trim()) return;
 
+        // Detect if the user message is raw HTML or Markdown
+        const isRawHTML =
+          userMessage.startsWith("<") && userMessage.endsWith(">");
+
         const userMessageDiv = document.createElement("div");
         userMessageDiv.className = "message user";
-        userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(userMessage)}</div>`;
+        userMessageDiv.innerHTML = `<div class="markdown-content">${renderMessage(userMessage, isRawHTML)}</div>`;
         messages.appendChild(userMessageDiv);
 
         const messageToBeSent = userInput.value;
