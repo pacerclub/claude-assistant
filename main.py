@@ -269,4 +269,4 @@ if __name__ == '__main__':
         if not User.query.filter_by(username=admin_username).first():
             db.session.add(User(username=admin_username, password=admin_password, is_admin=True))
             db.session.commit()
-    app.run(debug=True)
+    app.run(debug=True, port=1234)
