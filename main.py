@@ -18,6 +18,7 @@ load_dotenv()
 api_key = os.getenv("ANTHROPIC_API_KEY")
 admin_username = os.getenv("ADMIN_USERNAME")
 admin_password = os.getenv("ADMIN_PASSWORD")
+admin_email = os.getenv("ADMIN_EMAIL")
 
 # Initialize the Anthropics client
 client = anthropic.Anthropic(api_key=api_key)
@@ -163,8 +164,8 @@ def register():
 @app.route('/reset_password', methods=['GET', 'POST'])
 def reset_password():
     if request.method == 'POST':
-        username_or_email = request.form.get('username_or_email')
-        user = User.query.filter((User.username == username_or_email) | (User.email == username_or_email)).first()
+        identifier = request.form['identifier']
+        user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
 
         if user:
             token = s.dumps(user.email, salt='password-reset-salt')
@@ -190,6 +191,7 @@ def reset_password():
         return redirect(url_for('login'))
 
     return render_template('reset_password.html')
+
 
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password_token(token):
@@ -227,13 +229,12 @@ def admin():
             email = request.form['email']
             password = request.form['password']
             if User.query.filter((User.username == username) | (User.email == email)).first():
-                flash('User with this username or email already exists', 'danger')
+                flash('User already exists', 'danger')
             else:
                 new_user = User(username=username, email=email, password=generate_password_hash(password))
                 db.session.add(new_user)
                 db.session.commit()
                 flash('User added successfully', 'success')
-
         elif 'reset_password' in request.form:
             user_id = request.form['user_id']
             new_password = request.form['new_password']
@@ -244,83 +245,18 @@ def admin():
                 flash('Password reset successfully', 'success')
             else:
                 flash('User not found', 'danger')
-
         elif 'delete_user' in request.form:
             user_id = request.form['user_id']
             user = User.query.get(user_id)
             if user:
-                if user.is_admin:
-                    flash('Cannot delete admin user', 'danger')
-                else:
-                    db.session.delete(user)
-                    db.session.commit()
-                    flash('User deleted successfully', 'success')
-            else:
-                flash('User not found', 'danger')
-
-        elif 'toggle_admin' in request.form:
-            user_id = request.form['user_id']
-            user = User.query.get(user_id)
-            if user:
-                user.is_admin = not user.is_admin
+                db.session.delete(user)
                 db.session.commit()
-                flash(f'Admin status toggled for user {user.username}', 'success')
+                flash('User deleted successfully', 'success')
             else:
                 flash('User not found', 'danger')
 
     users = User.query.all()
     return render_template('admin.html', users=users)
-
-
-@app.route('/admin/edit_user/<int:user_id>', methods=['GET', 'POST'])
-@login_required
-def edit_user(user_id):
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page', 'danger')
-        return redirect(url_for('index'))
-
-    user = User.query.get_or_404(user_id)
-
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-
-        if User.query.filter((User.username == username) & (User.id != user_id)).first():
-            flash('Username already exists', 'danger')
-        elif User.query.filter((User.email == email) & (User.id != user_id)).first():
-            flash('Email already exists', 'danger')
-        else:
-            user.username = username
-            user.email = email
-
-            if request.form['password']:
-                user.password = generate_password_hash(request.form['password'])
-
-            db.session.commit()
-            flash('User updated successfully', 'success')
-            return redirect(url_for('admin'))
-
-    return render_template('edit_user.html', user=user)
-
-
-@app.route('/admin/user_details/<int:user_id>')
-@login_required
-def user_details(user_id):
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page', 'danger')
-        return redirect(url_for('index'))
-
-    user = User.query.get_or_404(user_id)
-    return render_template('user_details.html', user=user)
-
-
-# Helper function to check if a user is an admin
-def is_admin(user_id):
-    user = User.query.get(user_id)
-    return user and user.is_admin
-
-
-app.jinja_env.globals.update(is_admin=is_admin)
 
 
 @app.route('/new_conversation', methods=['POST'])
@@ -448,7 +384,7 @@ if __name__ == '__main__':
         db.create_all()
         if not User.query.filter_by(username=admin_username).first():
             db.session.add(User(username=admin_username,
-                                email='admin@example.com',
+                                email=admin_email,
                                 password=generate_password_hash(admin_password),
                                 is_admin=True))
             db.session.commit()
