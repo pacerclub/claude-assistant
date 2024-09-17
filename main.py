@@ -5,6 +5,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from sqlalchemy.orm import relationship
 import bleach
+from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Mail, Message as FlaskMessage
+import anthropic
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,22 +20,33 @@ admin_username = os.getenv("ADMIN_USERNAME")
 admin_password = os.getenv("ADMIN_PASSWORD")
 
 # Initialize the Anthropics client
-import anthropic
-
 client = anthropic.Anthropic(api_key=api_key)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_secret_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pacerclub.db'
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
+app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+mail = Mail(app)
+s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
 
 # User model
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     conversations = relationship('Conversation', back_populates='user', cascade='all, delete-orphan')
@@ -102,14 +118,14 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and user.password == password:
+        username_or_email = request.form.get('username_or_email')
+        password = request.form.get('password')
+        user = User.query.filter((User.username == username_or_email) | (User.email == username_or_email)).first()
+        if user and check_password_hash(user.password, password):
             login_user(user)
             return redirect(url_for('index'))
         else:
-            flash('Login Unsuccessful. Please check username and password', 'danger')
+            flash('Login Unsuccessful. Please check your credentials.', 'danger')
     return render_template('login.html')
 
 
@@ -119,6 +135,83 @@ def logout():
     logout_user()
     session.pop('system_message', None)  # Clear the system message from the session on logout
     return redirect(url_for('login'))
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+
+        user = User.query.filter((User.username == username) | (User.email == email)).first()
+        if user:
+            flash('Username or email already exists', 'danger')
+            return redirect(url_for('register'))
+
+        hashed_password = generate_password_hash(password)
+        new_user = User(username=username, email=email, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash('Registration successful. Please log in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
+@app.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        username_or_email = request.form.get('username_or_email')
+        user = User.query.filter((User.username == username_or_email) | (User.email == username_or_email)).first()
+
+        if user:
+            token = s.dumps(user.email, salt='password-reset-salt')
+            reset_url = url_for('reset_password_token', token=token, _external=True)
+
+            html_body = render_template('reset_password_email.html',
+                                        reset_url=reset_url,
+                                        username=user.username)
+
+            try:
+                msg = FlaskMessage(subject='Pacer Club - Password Reset Request',
+                                   recipients=[user.email],
+                                   html=html_body)
+                mail.send(msg)
+                app.logger.info(f"Password reset email sent to {user.email}")
+                flash('An email has been sent with instructions to reset your password.', 'info')
+            except Exception as e:
+                app.logger.error(f"Failed to send password reset email to {user.email}. Error: {str(e)}")
+                flash('An error occurred while sending the email. Please try again later.', 'danger')
+        else:
+            flash('No account found with that username or email.', 'danger')
+
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password_token(token):
+    try:
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)
+    except:
+        flash('The password reset link is invalid or has expired.', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('No user found with that email.', 'danger')
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        new_password = request.form['password']
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash('Your password has been updated! You can now log in with your new password.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password_token.html')
 
 
 @app.route('/admin', methods=['GET', 'POST'])
@@ -131,36 +224,103 @@ def admin():
     if request.method == 'POST':
         if 'add_user' in request.form:
             username = request.form['username']
+            email = request.form['email']
             password = request.form['password']
-            if User.query.filter_by(username=username).first():
-                flash('User already exists', 'danger')
+            if User.query.filter((User.username == username) | (User.email == email)).first():
+                flash('User with this username or email already exists', 'danger')
             else:
-                new_user = User(username=username, password=password)
+                new_user = User(username=username, email=email, password=generate_password_hash(password))
                 db.session.add(new_user)
                 db.session.commit()
                 flash('User added successfully', 'success')
+
         elif 'reset_password' in request.form:
             user_id = request.form['user_id']
             new_password = request.form['new_password']
             user = User.query.get(user_id)
             if user:
-                user.password = new_password
+                user.password = generate_password_hash(new_password)
                 db.session.commit()
                 flash('Password reset successfully', 'success')
             else:
                 flash('User not found', 'danger')
+
         elif 'delete_user' in request.form:
             user_id = request.form['user_id']
             user = User.query.get(user_id)
             if user:
-                db.session.delete(user)
+                if user.is_admin:
+                    flash('Cannot delete admin user', 'danger')
+                else:
+                    db.session.delete(user)
+                    db.session.commit()
+                    flash('User deleted successfully', 'success')
+            else:
+                flash('User not found', 'danger')
+
+        elif 'toggle_admin' in request.form:
+            user_id = request.form['user_id']
+            user = User.query.get(user_id)
+            if user:
+                user.is_admin = not user.is_admin
                 db.session.commit()
-                flash('User deleted successfully', 'success')
+                flash(f'Admin status toggled for user {user.username}', 'success')
             else:
                 flash('User not found', 'danger')
 
     users = User.query.all()
     return render_template('admin.html', users=users)
+
+
+@app.route('/admin/edit_user/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def edit_user(user_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page', 'danger')
+        return redirect(url_for('index'))
+
+    user = User.query.get_or_404(user_id)
+
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+
+        if User.query.filter((User.username == username) & (User.id != user_id)).first():
+            flash('Username already exists', 'danger')
+        elif User.query.filter((User.email == email) & (User.id != user_id)).first():
+            flash('Email already exists', 'danger')
+        else:
+            user.username = username
+            user.email = email
+
+            if request.form['password']:
+                user.password = generate_password_hash(request.form['password'])
+
+            db.session.commit()
+            flash('User updated successfully', 'success')
+            return redirect(url_for('admin'))
+
+    return render_template('edit_user.html', user=user)
+
+
+@app.route('/admin/user_details/<int:user_id>')
+@login_required
+def user_details(user_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page', 'danger')
+        return redirect(url_for('index'))
+
+    user = User.query.get_or_404(user_id)
+    return render_template('user_details.html', user=user)
+
+
+# Helper function to check if a user is an admin
+def is_admin(user_id):
+    user = User.query.get(user_id)
+    return user and user.is_admin
+
+
+app.jinja_env.globals.update(is_admin=is_admin)
 
 
 @app.route('/new_conversation', methods=['POST'])
@@ -220,7 +380,7 @@ def handle_conversation(user_query, conversation):
                     Message(conversation_id=conversation.id, role="assistant", content=ai_response_content.strip()))
                 db.session.commit()
         except Exception as e:
-            print(f"Exception in generate: {e}")
+            app.logger.error(f"Exception in generate: {e}")
 
     return Response(generate(), content_type='text/event-stream')
 
@@ -238,6 +398,7 @@ def chat():
     response_text = handle_conversation(user_query, conversation)
     return response_text
 
+
 @app.route('/delete_conversation/<int:conversation_id>', methods=['DELETE'])
 @login_required
 def delete_conversation(conversation_id):
@@ -247,6 +408,7 @@ def delete_conversation(conversation_id):
         db.session.commit()
         return jsonify({'success': True}), 200
     return jsonify({'success': False, 'error': 'Conversation not found'}), 404
+
 
 @app.route('/update_conversation_title/<int:conversation_id>', methods=['POST'])
 @login_required
@@ -263,10 +425,31 @@ def update_conversation_title(conversation_id):
     db.session.commit()
     return jsonify({'success': True}), 200
 
+class EmailLogger(object):
+    def __init__(self, app):
+        self.app = app
+
+    def __enter__(self):
+        self.original_send = FlaskMessage.send
+        FlaskMessage.send = self.logged_send
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        FlaskMessage.send = self.original_send
+
+    def logged_send(self, message):
+        self.app.logger.info(f"Sending email to: {message.recipients}")
+        self.app.logger.info(f"Email subject: {message.subject}")
+        self.app.logger.info(f"Email body: {message.html}")
+        return self.original_send(message)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         if not User.query.filter_by(username=admin_username).first():
-            db.session.add(User(username=admin_username, password=admin_password, is_admin=True))
+            db.session.add(User(username=admin_username,
+                                email='admin@example.com',
+                                password=generate_password_hash(admin_password),
+                                is_admin=True))
             db.session.commit()
     app.run(debug=True, port=1234)

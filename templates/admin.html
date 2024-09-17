@@ -18,6 +18,10 @@
                         <input type="text" class="form-control" id="username" name="username" required>
                     </div>
                     <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
                         <label for="password">Password</label>
                         <input type="password" class="form-control" id="password" name="password" required>
                     </div>
@@ -52,6 +56,7 @@
                         <tr>
                             <th>ID</th>
                             <th>Username</th>
+                            <th>Email</th>
                             <th>Is Admin</th>
                         </tr>
                     </thead>
@@ -60,6 +65,7 @@
                         <tr>
                             <td>{{ user.id }}</td>
                             <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
                             <td>{{ user.is_admin }}</td>
                         </tr>
                         {% endfor %}
