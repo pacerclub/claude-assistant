@@ -32,6 +32,7 @@ app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'True').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+base_url = os.getenv('BASE_URL', 'http://127.0.0.1:1234')
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -169,7 +170,7 @@ def reset_password():
 
         if user:
             token = s.dumps(user.email, salt='password-reset-salt')
-            reset_url = url_for('reset_password_token', token=token, _external=True)
+            reset_url = f"{base_url}{url_for('reset_password_token', token=token)}"
 
             html_body = render_template('reset_password_email.html',
                                         reset_url=reset_url,
